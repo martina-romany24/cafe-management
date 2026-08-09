@@ -1,0 +1,132 @@
+generator client {
+  provider = "prisma-client-js"
+}
+
+datasource db {
+  provider  = "postgresql"
+  url       = env("DATABASE_URL")
+  directUrl = env("DIRECT_URL")
+}
+
+enum Role {
+  admin
+  branch_manager
+}
+
+enum MarginType {
+  percentage
+  fixed
+}
+
+model User {
+  id        String   @id @default(uuid())
+  name      String
+  email     String   @unique
+  password  String
+  role      Role
+  branchId  String?
+  branch    Branch?  @relation(fields: [branchId], references: [id])
+  isActive  Boolean  @default(true)
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+  orders    Order[]
+
+  @@map("users")
+}
+
+model Branch {
+  id        String   @id @default(uuid())
+  name      String
+  location  String?
+  isActive  Boolean  @default(true)
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  users          User[]
+  pricings       BranchProductPricing[]
+  orders         Order[]
+  monthlyReports MonthlyReport[]
+
+  @@map("branches")
+}
+
+model Product {
+  id            String     @id @default(uuid())
+  name          String
+  description   String?
+  basePrice     Decimal    @db.Decimal(10, 2)
+  defaultMargin Decimal    @default(20) @db.Decimal(12, 4)
+  marginType    MarginType @default(percentage)
+  category      String?
+  isActive      Boolean    @default(true)
+  createdAt     DateTime   @default(now())
+  updatedAt     DateTime   @updatedAt
+
+  pricings   BranchProductPricing[]
+  orderItems OrderItem[]
+
+  @@map("products")
+}
+
+model BranchProductPricing {
+  id          String     @id @default(uuid())
+  branchId    String
+  productId   String
+  marginType  MarginType
+  marginValue Decimal    @db.Decimal(12, 4)
+  createdAt   DateTime   @default(now())
+  updatedAt   DateTime   @updatedAt
+
+  branch  Branch  @relation(fields: [branchId], references: [id])
+  product Product @relation(fields: [productId], references: [id])
+
+  @@unique([branchId, productId])
+  @@map("branch_product_pricing")
+}
+
+model Order {
+  id          String   @id @default(uuid())
+  branchId    String
+  userId      String
+  totalAmount Decimal  @db.Decimal(10, 2)
+  createdAt   DateTime @default(now())
+
+  branch Branch      @relation(fields: [branchId], references: [id])
+  user   User        @relation(fields: [userId], references: [id])
+  items  OrderItem[]
+
+  @@map("orders")
+}
+
+model OrderItem {
+  id              String  @id @default(uuid())
+  orderId         String
+  productId       String
+  quantity        Int
+  priceAtSale     Decimal @db.Decimal(10, 2)
+  basePriceAtSale Decimal @db.Decimal(10, 2)
+
+  order   Order   @relation(fields: [orderId], references: [id])
+  product Product @relation(fields: [productId], references: [id])
+
+  @@map("order_items")
+}
+
+model MonthlyReport {
+  id           String   @id @default(uuid())
+  branchId     String
+  month        Int
+  year         Int
+  totalSales   Decimal  @db.Decimal(12, 2)
+  baseCost     Decimal  @default(0) @db.Decimal(12, 2)
+  branchProfit Decimal  @db.Decimal(12, 2)
+  hqRevenue    Decimal  @db.Decimal(12, 2)
+  ordersCount  Int
+  topProducts  Json?
+  generatedAt  DateTime @default(now())
+
+  branch Branch @relation(fields: [branchId], references: [id])
+
+  @@unique([branchId, month, year])
+  @@map("monthly_reports")
+}
