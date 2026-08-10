@@ -11,6 +11,7 @@ import AdminProducts from './pages/admin/Products';
 import AdminBranches from './pages/admin/Branches';
 import AdminManagers from './pages/admin/Managers';
 import AdminReports from './pages/admin/MonthlyReports';
+import AdminTables from './pages/admin/Tables';
 
 import BranchDashboard from './pages/branch/Dashboard';
 import BranchPOS from './pages/branch/POS';
@@ -36,6 +37,7 @@ export default function App() {
         <Route path="/admin/products" element={<AdminProducts />} />
         <Route path="/admin/branches" element={<AdminBranches />} />
         <Route path="/admin/managers" element={<AdminManagers />} />
+        <Route path="/admin/tables" element={<AdminTables />} />
         <Route path="/admin/reports" element={<AdminReports />} />
       </Route>
 

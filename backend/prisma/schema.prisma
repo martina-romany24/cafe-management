@@ -18,6 +18,12 @@ enum MarginType {
   fixed
 }
 
+enum TableStatus {
+  available
+  occupied
+  reserved
+}
+
 model User {
   id        String   @id @default(uuid())
   name      String
@@ -46,8 +52,26 @@ model Branch {
   pricings       BranchProductPricing[]
   orders         Order[]
   monthlyReports MonthlyReport[]
+  tables         Table[]
 
   @@map("branches")
+}
+
+model Table {
+  id        String      @id @default(uuid())
+  branchId  String
+  number    Int
+  capacity  Int
+  status    TableStatus @default(available)
+  createdAt DateTime    @default(now())
+  updatedAt DateTime    @updatedAt
+
+  branch          Branch             @relation(fields: [branchId], references: [id])
+  transfersFrom   TableTransferLog[] @relation("FromTableTransfers")
+  transfersTo     TableTransferLog[] @relation("ToTableTransfers")
+
+  @@unique([branchId, number])
+  @@map("tables")
 }
 
 model Product {
@@ -88,8 +112,11 @@ model Order {
   id          String   @id @default(uuid())
   branchId    String
   userId      String
+  tableId     String?  @unique
   totalAmount Decimal  @db.Decimal(10, 2)
+  status      String   @default("open")
   createdAt   DateTime @default(now())
+  updatedAt   DateTime @updatedAt
 
   branch Branch      @relation(fields: [branchId], references: [id])
   user   User        @relation(fields: [userId], references: [id])
@@ -105,11 +132,27 @@ model OrderItem {
   quantity        Int
   priceAtSale     Decimal @db.Decimal(10, 2)
   basePriceAtSale Decimal @db.Decimal(10, 2)
+  paidQuantity    Int     @default(0)
+  splitAmount     Decimal @default(0) @db.Decimal(10, 2)
 
   order   Order   @relation(fields: [orderId], references: [id])
   product Product @relation(fields: [productId], references: [id])
 
   @@map("order_items")
+}
+
+model TableTransferLog {
+  id              String   @id @default(uuid())
+  fromTableId     String
+  toTableId       String
+  orderId         String
+  transferredBy   String
+  transferredAt   DateTime @default(now())
+
+  fromTable Table @relation("FromTableTransfers", fields: [fromTableId], references: [id])
+  toTable   Table @relation("ToTableTransfers", fields: [toTableId], references: [id])
+
+  @@map("table_transfer_logs")
 }
 
 model MonthlyReport {

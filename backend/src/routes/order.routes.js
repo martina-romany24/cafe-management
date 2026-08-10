@@ -18,10 +18,50 @@ const orderCreateSchema = z.object({
     .min(1),
 });
 
+const tableOrderCreateSchema = z.object({
+  branchId: z.string().uuid().optional(), // required only for admin; ignored for branch_manager
+  tableId: z.string().uuid(),
+  items: z
+    .array(
+      z.object({
+        productId: z.string().uuid(),
+        quantity: z.number().int().positive(),
+      })
+    )
+    .min(1),
+});
+
+const addItemsSchema = z.object({
+  items: z
+    .array(
+      z.object({
+        productId: z.string().uuid(),
+        quantity: z.number().int().positive(),
+      })
+    )
+    .min(1),
+});
+
+const splitBillSchema = z.object({
+  itemIds: z.array(z.string().uuid()).min(1),
+});
+
+const transferOrderSchema = z.object({
+  fromTableId: z.string().uuid(),
+  toTableId: z.string().uuid(),
+});
+
 router.post('/', authenticate, requireRole('admin', 'branch_manager'), validate(orderCreateSchema), controller.create);
 router.get('/summary', authenticate, requireRole('admin', 'branch_manager'), controller.branchSummary);
 router.get('/top-products', authenticate, requireRole('admin', 'branch_manager'), controller.topProducts);
 router.get('/admin-report', authenticate, requireRole('admin'), controller.adminReport);
 router.get('/all', authenticate, requireRole('admin'), controller.getAllOrders);
+
+// Table-specific order routes (must come before /:id routes)
+router.post('/table-order', authenticate, requireRole('admin', 'branch_manager'), validate(tableOrderCreateSchema), controller.createTableOrder);
+router.get('/table/:tableId', authenticate, requireRole('admin', 'branch_manager'), controller.getOrderByTable);
+router.post('/:id/items', authenticate, requireRole('admin', 'branch_manager'), validate(addItemsSchema), controller.addItemsToOrder);
+router.post('/:id/split-bill', authenticate, requireRole('admin', 'branch_manager'), validate(splitBillSchema), controller.splitBill);
+router.post('/:id/transfer', authenticate, requireRole('admin', 'branch_manager'), validate(transferOrderSchema), controller.transferOrder);
 
 module.exports = router;

@@ -7,6 +7,7 @@ const productRoutes = require('./routes/product.routes');
 const userRoutes = require('./routes/user.routes');
 const orderRoutes = require('./routes/order.routes');
 const reportRoutes = require('./routes/report.routes');
+const tableRoutes = require('./routes/table.routes');
 const { notFoundHandler, errorHandler } = require('./middleware/errorHandler');
 
 function createApp() {
@@ -29,6 +30,7 @@ function createApp() {
   app.use('/api/users', userRoutes);
   app.use('/api/orders', orderRoutes);
   app.use('/api/reports', reportRoutes);
+  app.use('/api/tables', tableRoutes);
 
   app.use(notFoundHandler);
   app.use(errorHandler);

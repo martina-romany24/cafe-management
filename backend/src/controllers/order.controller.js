@@ -72,4 +72,58 @@ async function getAllOrders(req, res, next) {
   }
 }
 
-module.exports = { create, branchSummary, adminReport, topProducts, getAllOrders };
+async function createTableOrder(req, res, next) {
+  try {
+    const branchId = req.user.role === 'admin' ? req.body.branchId : req.user.branchId;
+    const { tableId, items } = req.body;
+    const order = await orderService.createTableOrder(branchId, req.user.id, tableId, items);
+    req.io.to(`branch:${branchId}`).emit('order_created', { orderId: order.id, tableId });
+    res.status(201).json(order);
+  } catch (err) {
+    next(err);
+  }
+}
+
+async function addItemsToOrder(req, res, next) {
+  try {
+    const { items } = req.body;
+    const order = await orderService.addItemsToOrder(req.params.id, items);
+    req.io.emit('order_updated', { orderId: order.id });
+    res.json(order);
+  } catch (err) {
+    next(err);
+  }
+}
+
+async function splitBill(req, res, next) {
+  try {
+    const { itemIds } = req.body;
+    const result = await orderService.splitBill(req.params.id, itemIds);
+    req.io.emit('order_updated', { orderId: req.params.id });
+    res.json(result);
+  } catch (err) {
+    next(err);
+  }
+}
+
+async function transferOrder(req, res, next) {
+  try {
+    const { fromTableId, toTableId } = req.body;
+    const order = await orderService.transferOrder(req.params.id, fromTableId, toTableId, req.user.id);
+    req.io.emit('table_transferred', { orderId: req.params.id, fromTableId, toTableId });
+    res.json(order);
+  } catch (err) {
+    next(err);
+  }
+}
+
+async function getOrderByTable(req, res, next) {
+  try {
+    const order = await orderService.getOrderByTable(req.params.tableId);
+    res.json(order);
+  } catch (err) {
+    next(err);
+  }
+}
+
+module.exports = { create, branchSummary, adminReport, topProducts, getAllOrders, createTableOrder, addItemsToOrder, splitBill, transferOrder, getOrderByTable };
