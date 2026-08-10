@@ -28,7 +28,7 @@ async function get(req, res, next) {
 async function create(req, res, next) {
   try {
     const table = await tableService.create(req.body);
-    req.io.emit('table_updated', { type: 'created', tableId: table.id });
+    req.io.to(`branch:${table.branchId}`).emit('table_updated', { type: 'created', tableId: table.id });
     res.status(201).json(table);
   } catch (err) {
     next(err);
@@ -38,7 +38,7 @@ async function create(req, res, next) {
 async function update(req, res, next) {
   try {
     const table = await tableService.update(req.params.id, req.body);
-    req.io.emit('table_updated', { type: 'updated', tableId: table.id });
+    req.io.to(`branch:${table.branchId}`).emit('table_updated', { type: 'updated', tableId: table.id });
     res.json(table);
   } catch (err) {
     next(err);
@@ -49,7 +49,7 @@ async function updateStatus(req, res, next) {
   try {
     const { status } = req.body;
     const table = await tableService.updateStatus(req.params.id, status);
-    req.io.emit('table_updated', { type: 'status_changed', tableId: table.id, status });
+    req.io.to(`branch:${table.branchId}`).emit('table_updated', { type: 'status_changed', tableId: table.id, status });
     res.json(table);
   } catch (err) {
     next(err);
@@ -59,7 +59,7 @@ async function updateStatus(req, res, next) {
 async function remove(req, res, next) {
   try {
     const table = await tableService.remove(req.params.id);
-    req.io.emit('table_updated', { type: 'deleted', tableId: table.id });
+    req.io.to(`branch:${table.branchId}`).emit('table_updated', { type: 'deleted', tableId: table.id });
     res.json({ message: 'Table deleted', table });
   } catch (err) {
     next(err);

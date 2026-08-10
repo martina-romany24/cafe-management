@@ -3,7 +3,10 @@ function notFoundHandler(req, res) {
 }
 
 function errorHandler(err, req, res, next) {
-  console.error(err);
+  console.error('Error occurred:', err);
+  console.error('Error message:', err.message);
+  console.error('Error status:', err.status);
+  console.error('Error stack:', err.stack);
 
   if (err.code === 'P2002') {
     return res.status(409).json({ message: 'A record with this unique value already exists' });
@@ -13,7 +16,17 @@ function errorHandler(err, req, res, next) {
   }
 
   const status = err.status || 500;
-  res.status(status).json({ message: err.message || 'Internal server error' });
+  
+  // Include error details in response for debugging
+  const response = {
+    message: err.message || 'Internal server error',
+  };
+  
+  if (err.errors) {
+    response.errors = err.errors;
+  }
+  
+  res.status(status).json(response);
 }
 
 module.exports = { notFoundHandler, errorHandler };

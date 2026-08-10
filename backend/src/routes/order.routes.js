@@ -60,7 +60,13 @@ router.get('/all', authenticate, requireRole('admin'), controller.getAllOrders);
 // Table-specific order routes (must come before /:id routes)
 router.post('/table-order', authenticate, requireRole('admin', 'branch_manager'), validate(tableOrderCreateSchema), controller.createTableOrder);
 router.get('/table/:tableId', authenticate, requireRole('admin', 'branch_manager'), controller.getOrderByTable);
-router.post('/:id/items', authenticate, requireRole('admin', 'branch_manager'), validate(addItemsSchema), controller.addItemsToOrder);
+router.post('/:id/items', authenticate, requireRole('admin', 'branch_manager'), (req, res, next) => {
+  console.log('POST /:id/items route hit');
+  console.log('Params:', req.params);
+  console.log('Body:', req.body);
+  console.log('User:', req.user);
+  next();
+}, validate(addItemsSchema), controller.addItemsToOrder);
 router.post('/:id/split-bill', authenticate, requireRole('admin', 'branch_manager'), validate(splitBillSchema), controller.splitBill);
 router.post('/:id/transfer', authenticate, requireRole('admin', 'branch_manager'), validate(transferOrderSchema), controller.transferOrder);
 

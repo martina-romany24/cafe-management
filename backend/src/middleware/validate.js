@@ -4,13 +4,18 @@
  */
 function validate(schema, source = 'body') {
   return (req, res, next) => {
+    console.log('Validation middleware - source:', source);
+    console.log('Validation middleware - data to validate:', JSON.stringify(req[source], null, 2));
     const result = schema.safeParse(req[source]);
     if (!result.success) {
-      return res.status(400).json({
-        message: 'Validation error',
-        errors: result.error.flatten().fieldErrors,
-      });
+      console.log('Validation failed:', JSON.stringify(result.error.flatten(), null, 2));
+      const flattened = result.error.flatten();
+      const error = new Error('Validation error');
+      error.status = 400;
+      error.errors = flattened.fieldErrors;
+      return next(error);
     }
+    console.log('Validation passed');
     req[source] = result.data;
     next();
   };

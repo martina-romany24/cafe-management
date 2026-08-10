@@ -224,21 +224,46 @@ async function createTableOrder(branchId, userId, tableId, items) {
         include: { product: true },
       });
 
-      if (!pricing || !pricing.product.isActive) {
-        const err = new Error(`Product not available for this branch: ${item.productId}`);
-        err.status = 400;
-        throw err;
+      if (!pricing) {
+        // If no branch-specific pricing, get product directly and use basePrice
+        const product = await tx.product.findUnique({
+          where: { id: item.productId },
+        });
+
+        if (!product || !product.isActive) {
+          const err = new Error(`Product not available: ${item.productId}`);
+          err.status = 400;
+          throw err;
+        }
+
+        // For admin, use basePrice directly without margin calculation
+        const finalPrice = product.basePrice;
+        totalAmount += finalPrice * item.quantity;
+
+        orderItemsData.push({
+          productId: item.productId,
+          quantity: item.quantity,
+          priceAtSale: finalPrice,
+          basePriceAtSale: product.basePrice,
+        });
+      } else {
+        if (!pricing.product.isActive) {
+          const err = new Error(`Product not available for this branch: ${item.productId}`);
+          err.status = 400;
+          throw err;
+        }
+
+        // For admin, use basePrice directly without margin calculation
+        const finalPrice = pricing.product.basePrice;
+        totalAmount += finalPrice * item.quantity;
+
+        orderItemsData.push({
+          productId: item.productId,
+          quantity: item.quantity,
+          priceAtSale: finalPrice,
+          basePriceAtSale: pricing.product.basePrice,
+        });
       }
-
-      const calc = calculatePricing(pricing.product.basePrice, pricing.marginType, pricing.marginValue, item.quantity);
-      totalAmount += calc.totalSale;
-
-      orderItemsData.push({
-        productId: item.productId,
-        quantity: item.quantity,
-        priceAtSale: calc.finalPrice,
-        basePriceAtSale: pricing.product.basePrice,
-      });
     }
 
     const order = await tx.order.create({
@@ -267,11 +292,14 @@ async function createTableOrder(branchId, userId, tableId, items) {
  * Adds items to an existing table order.
  */
 async function addItemsToOrder(orderId, items) {
+  console.log('addItemsToOrder service - orderId:', orderId, 'items:', items);
   return prisma.$transaction(async (tx) => {
     const order = await tx.order.findUnique({
       where: { id: orderId },
       include: { items: true },
     });
+
+    console.log('Found order:', order);
 
     if (!order) {
       const err = new Error('Order not found');
@@ -289,26 +317,65 @@ async function addItemsToOrder(orderId, items) {
     const orderItemsData = [];
 
     for (const item of items) {
+      console.log('Processing item:', item);
+      console.log('Looking for pricing with branchId:', order.branchId, 'productId:', item.productId);
+      
       const pricing = await tx.branchProductPricing.findUnique({
         where: { branchId_productId: { branchId: order.branchId, productId: item.productId } },
         include: { product: true },
       });
 
-      if (!pricing || !pricing.product.isActive) {
-        const err = new Error(`Product not available for this branch: ${item.productId}`);
-        err.status = 400;
-        throw err;
+      console.log('Found pricing:', pricing);
+
+      if (!pricing) {
+        console.log('No branch-specific pricing found, looking for product directly');
+        // If no branch-specific pricing, get product directly and use basePrice
+        const product = await tx.product.findUnique({
+          where: { id: item.productId },
+        });
+
+        console.log('Found product (no pricing):', product);
+
+        if (!product) {
+          const err = new Error(`Product not found: ${item.productId}`);
+          err.status = 400;
+          throw err;
+        }
+
+        if (!product.isActive) {
+          const err = new Error(`Product not available: ${item.productId}`);
+          err.status = 400;
+          throw err;
+        }
+
+        // For admin, use basePrice directly without margin calculation
+        const finalPrice = product.basePrice;
+        additionalAmount += finalPrice * item.quantity;
+
+        orderItemsData.push({
+          productId: item.productId,
+          quantity: item.quantity,
+          priceAtSale: finalPrice,
+          basePriceAtSale: product.basePrice,
+        });
+      } else {
+        if (!pricing.product.isActive) {
+          const err = new Error(`Product not available for this branch: ${item.productId}`);
+          err.status = 400;
+          throw err;
+        }
+
+        // For admin, use basePrice directly without margin calculation
+        const finalPrice = pricing.product.basePrice;
+        additionalAmount += finalPrice * item.quantity;
+
+        orderItemsData.push({
+          productId: item.productId,
+          quantity: item.quantity,
+          priceAtSale: finalPrice,
+          basePriceAtSale: pricing.product.basePrice,
+        });
       }
-
-      const calc = calculatePricing(pricing.product.basePrice, pricing.marginType, pricing.marginValue, item.quantity);
-      additionalAmount += calc.totalSale;
-
-      orderItemsData.push({
-        productId: item.productId,
-        quantity: item.quantity,
-        priceAtSale: calc.finalPrice,
-        basePriceAtSale: pricing.product.basePrice,
-      });
     }
 
     const updatedOrder = await tx.order.update({
@@ -319,6 +386,8 @@ async function addItemsToOrder(orderId, items) {
       },
       include: { items: { include: { product: true } } },
     });
+
+    console.log('Updated order:', updatedOrder);
 
     return updatedOrder;
   });
@@ -382,7 +451,10 @@ async function splitBill(orderId, itemIds) {
       // Close the order and free the table
       await tx.order.update({
         where: { id: orderId },
-        data: { status: 'closed' },
+        data: { 
+          status: 'closed',
+          tableId: null, // Clear tableId to allow new orders for this table
+        },
       });
 
       if (order.tableId) {

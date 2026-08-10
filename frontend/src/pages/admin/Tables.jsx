@@ -19,7 +19,7 @@ export default function Tables() {
   const queryClient = useQueryClient();
 
   const tableOrderMutation = useMutation({
-    mutationFn: ({ tableId, items }) => createTableOrder({ tableId, items }),
+    mutationFn: ({ tableId, items, branchId }) => createTableOrder({ tableId, items, branchId }),
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: ['tables'] });
       setCart({});
@@ -33,10 +33,21 @@ export default function Tables() {
       });
     },
     onError: (error) => {
+      const errorMessage = error.response?.data?.message || 'حدث خطأ';
+      const errors = error.response?.data?.errors;
+      let fullMessage = errorMessage;
+      
+      if (errors) {
+        const errorDetails = Object.entries(errors)
+          .map(([field, messages]) => `${field}: ${Array.isArray(messages) ? messages.join(', ') : messages}`)
+          .join('\n');
+        fullMessage = `${errorMessage}\n\n${errorDetails}`;
+      }
+      
       Swal.fire({
         icon: 'error',
         title: 'فشل',
-        text: error.response?.data?.message || 'حدث خطأ',
+        text: fullMessage,
         confirmButtonText: 'حسناً',
         confirmButtonColor: '#ef4444'
       });
@@ -97,7 +108,7 @@ export default function Tables() {
   });
 
   const addItemsMutation = useMutation({
-    mutationFn: ({ orderId, items }) => addItemsToOrder(orderId, items),
+    mutationFn: ({ orderId, items }) => addItemsToOrder(orderId, { items }),
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: ['tables'] });
       setCart({});
@@ -111,10 +122,21 @@ export default function Tables() {
       });
     },
     onError: (error) => {
+      const errorMessage = error.response?.data?.message || 'حدث خطأ';
+      const errors = error.response?.data?.errors;
+      let fullMessage = errorMessage;
+      
+      if (errors) {
+        const errorDetails = Object.entries(errors)
+          .map(([field, messages]) => `${field}: ${Array.isArray(messages) ? messages.join(', ') : messages}`)
+          .join('\n');
+        fullMessage = `${errorMessage}\n\n${errorDetails}`;
+      }
+      
       Swal.fire({
         icon: 'error',
         title: 'فشل',
-        text: error.response?.data?.message || 'حدث خطأ',
+        text: fullMessage,
         confirmButtonText: 'حسناً',
         confirmButtonColor: '#ef4444'
       });
@@ -177,15 +199,16 @@ export default function Tables() {
   };
 
   const handleAddToCart = (productId) => {
-    setCart((c) => ({ ...c, [productId]: (c[productId] || 0) + 1 }));
+    setCart((c) => ({ ...c, [String(productId)]: (c[String(productId)] || 0) + 1 }));
   };
 
   const handleDecrement = (productId) => {
     setCart((c) => {
       const next = { ...c };
-      if (!next[productId]) return next;
-      next[productId] -= 1;
-      if (next[productId] <= 0) delete next[productId];
+      const key = String(productId);
+      if (!next[key]) return next;
+      next[key] -= 1;
+      if (next[key] <= 0) delete next[key];
       return next;
     });
   };
@@ -193,23 +216,47 @@ export default function Tables() {
   const handleRemoveItem = (productId) => {
     setCart((c) => {
       const next = { ...c };
-      delete next[productId];
+      delete next[String(productId)];
       return next;
     });
   };
 
   const handleAddItemsToOrder = () => {
     if (!selectedTable?.order) return;
-    const cartItems = Object.entries(cart).map(([productId, quantity]) => ({ productId, quantity }));
+    const cartItems = Object.entries(cart).map(([productId, quantity]) => ({ 
+      productId, 
+      quantity: Number(quantity) 
+    }));
     if (cartItems.length === 0) return;
+    
+    // Validate that all products exist
+    const invalidProducts = cartItems.filter(item => !products.find(p => p.id === item.productId));
+    if (invalidProducts.length > 0) {
+      Swal.fire({
+        icon: 'error',
+        title: 'فشل',
+        text: `بعض المنتجات غير موجودة: ${invalidProducts.map(i => i.productId).join(', ')}`,
+        confirmButtonText: 'حسناً',
+        confirmButtonColor: '#ef4444'
+      });
+      return;
+    }
+    
+    console.log('Adding items to order:', { orderId: selectedTable.order.id, items: cartItems });
+    console.log('Cart:', cart);
+    console.log('Selected table:', selectedTable);
+    console.log('Cart items details:', JSON.stringify(cartItems, null, 2));
     addItemsMutation.mutate({ orderId: selectedTable.order.id, items: cartItems });
   };
 
   const handleCreateOrderFromCart = () => {
     if (!selectedTable) return;
-    const cartItems = Object.entries(cart).map(([productId, quantity]) => ({ productId, quantity }));
+    const cartItems = Object.entries(cart).map(([productId, quantity]) => ({ 
+      productId, 
+      quantity: Number(quantity) 
+    }));
     if (cartItems.length === 0) return;
-    tableOrderMutation.mutate({ tableId: selectedTable.id, items: cartItems });
+    tableOrderMutation.mutate({ tableId: selectedTable.id, items: cartItems, branchId: selectedTable.branchId });
   };
 
   const handleAddTable = async () => {
@@ -356,7 +403,7 @@ export default function Tables() {
                   >
                     <p className="font-semibold">{p.name}</p>
                     <p className="text-xs text-gray-400 mb-2">{p.category}</p>
-                    <p className="text-brand-600 font-bold">{(p.basePrice || 0).toFixed(2)} ج.م</p>
+                    <p className="text-brand-600 font-bold">{(Number(p.basePrice) || 0).toFixed(2)} ج.م</p>
                   </button>
                 ))}
               </div>
@@ -378,7 +425,7 @@ export default function Tables() {
                       <li key={productId} className="flex items-center justify-between text-sm">
                         <div>
                           <p className="font-medium">{product?.name}</p>
-                          <p className="text-gray-400 text-xs">{(product?.basePrice || 0).toFixed(2)} ج.م</p>
+                          <p className="text-gray-400 text-xs">{(Number(product?.basePrice) || 0).toFixed(2)} ج.م</p>
                         </div>
                         <div className="flex items-center gap-2">
                           <button onClick={() => handleDecrement(productId)} className="p-1 rounded bg-gray-100 hover:bg-gray-200">
@@ -400,7 +447,7 @@ export default function Tables() {
                 <span>
                   {Object.entries(cart).reduce((sum, [productId, quantity]) => {
                     const product = products.find((p) => p.id === productId);
-                    return sum + (product?.price || 0) * quantity;
+                    return sum + (Number(product?.basePrice) || 0) * quantity;
                   }, 0).toFixed(2)} ج.م
                 </span>
               </div>

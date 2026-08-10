@@ -18,19 +18,51 @@ export function useSocket() {
   useEffect(() => {
     if (!token) return;
 
+    console.log('Connecting to Socket.io at:', SOCKET_URL);
     const socket = io(SOCKET_URL, { auth: { token } });
     socketRef.current = socket;
 
+    socket.on('connect', () => {
+      console.log('Socket.io connected successfully');
+    });
+
+    socket.on('connect_error', (error) => {
+      console.error('Socket.io connection error:', error);
+    });
+
+    socket.on('disconnect', () => {
+      console.log('Socket.io disconnected');
+    });
+
     socket.on('product_updated', () => {
+      console.log('Received product_updated event');
       queryClient.invalidateQueries({ queryKey: ['products'] });
     });
 
     socket.on('order_created', () => {
+      console.log('Received order_created event');
       queryClient.invalidateQueries({ queryKey: ['sales-summary'] });
       queryClient.invalidateQueries({ queryKey: ['admin-report'] });
+      queryClient.invalidateQueries({ queryKey: ['tables'] });
+    });
+
+    socket.on('order_updated', () => {
+      console.log('Received order_updated event');
+      queryClient.invalidateQueries({ queryKey: ['tables'] });
+    });
+
+    socket.on('table_transferred', () => {
+      console.log('Received table_transferred event');
+      queryClient.invalidateQueries({ queryKey: ['tables'] });
+    });
+
+    socket.on('table_updated', () => {
+      console.log('Received table_updated event');
+      queryClient.invalidateQueries({ queryKey: ['tables'] });
     });
 
     return () => {
+      console.log('Disconnecting Socket.io');
       socket.disconnect();
     };
   }, [token, queryClient]);
