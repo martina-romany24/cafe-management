@@ -10,10 +10,12 @@ export default function Tables() {
   const { data: tables = [], isLoading } = useQuery({ queryKey: ['tables'], queryFn: () => getTables({}) });
   const { data: products = [] } = useQuery({ queryKey: ['products'], queryFn: getProducts });
   const { data: branches = [] } = useQuery({ queryKey: ['branches'], queryFn: getBranches });
-  const [selectedTable, setSelectedTable] = useState(null);
+  const [selectedTableId, setSelectedTableId] = useState(null);
+  const selectedTable = tables.find(t => t.id === selectedTableId);
   const [showSplitBill, setShowSplitBill] = useState(false);
   const [showTransfer, setShowTransfer] = useState(false);
-  const [selectedItems, setSelectedItems] = useState([]);
+  const [selectedItems, setSelectedItems] = useState({}); // { [itemId]: quantity }
+  const [selectedTransferItems, setSelectedTransferItems] = useState({}); // { [itemId]: quantity }
   const [cart, setCart] = useState({});
   const [showProducts, setShowProducts] = useState(false);
   const queryClient = useQueryClient();
@@ -36,14 +38,14 @@ export default function Tables() {
       const errorMessage = error.response?.data?.message || 'حدث خطأ';
       const errors = error.response?.data?.errors;
       let fullMessage = errorMessage;
-      
+
       if (errors) {
         const errorDetails = Object.entries(errors)
           .map(([field, messages]) => `${field}: ${Array.isArray(messages) ? messages.join(', ') : messages}`)
           .join('\n');
         fullMessage = `${errorMessage}\n\n${errorDetails}`;
       }
-      
+
       Swal.fire({
         icon: 'error',
         title: 'فشل',
@@ -55,11 +57,11 @@ export default function Tables() {
   });
 
   const splitBillMutation = useMutation({
-    mutationFn: ({ orderId, itemIds }) => splitBill(orderId, { itemIds }),
+    mutationFn: ({ orderId, items }) => splitBill(orderId, { items }),
     onSuccess: (data) => {
       queryClient.invalidateQueries({ queryKey: ['tables'] });
       setShowSplitBill(false);
-      setSelectedItems([]);
+      setSelectedItems({});
       Swal.fire({
         icon: 'success',
         title: 'تم الحساب',
@@ -68,7 +70,7 @@ export default function Tables() {
         confirmButtonColor: '#10b981'
       });
       if (data.allPaid) {
-        setSelectedTable(null);
+        setSelectedTableId(null);
       }
     },
     onError: (error) => {
@@ -83,18 +85,19 @@ export default function Tables() {
   });
 
   const transferMutation = useMutation({
-    mutationFn: ({ orderId, fromTableId, toTableId }) => transferOrder(orderId, { fromTableId, toTableId }),
+    mutationFn: ({ orderId, fromTableId, toTableId, items }) => transferOrder(orderId, { fromTableId, toTableId, items }),
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: ['tables'] });
       setShowTransfer(false);
+      setSelectedTransferItems({});
       Swal.fire({
         icon: 'success',
         title: 'تم النقل',
-        text: 'تم نقل الطلب للترابيزة الجديدة',
+        text: 'تم نقل المنتجات المحددة للترابيزة الجديدة',
         confirmButtonText: 'حسناً',
         confirmButtonColor: '#10b981'
       });
-      setSelectedTable(null);
+      setSelectedTableId(null);
     },
     onError: (error) => {
       Swal.fire({
@@ -125,14 +128,14 @@ export default function Tables() {
       const errorMessage = error.response?.data?.message || 'حدث خطأ';
       const errors = error.response?.data?.errors;
       let fullMessage = errorMessage;
-      
+
       if (errors) {
         const errorDetails = Object.entries(errors)
           .map(([field, messages]) => `${field}: ${Array.isArray(messages) ? messages.join(', ') : messages}`)
           .join('\n');
         fullMessage = `${errorMessage}\n\n${errorDetails}`;
       }
-      
+
       Swal.fire({
         icon: 'error',
         title: 'فشل',
@@ -185,10 +188,11 @@ export default function Tables() {
   };
 
   const handleTableClick = (table) => {
-    setSelectedTable(table);
+    setSelectedTableId(table.id);
     setShowSplitBill(false);
     setShowTransfer(false);
-    setSelectedItems([]);
+    setSelectedItems({});
+    setSelectedTransferItems({});
     setShowProducts(false);
     setCart({});
   };
@@ -223,12 +227,12 @@ export default function Tables() {
 
   const handleAddItemsToOrder = () => {
     if (!selectedTable?.order) return;
-    const cartItems = Object.entries(cart).map(([productId, quantity]) => ({ 
-      productId, 
-      quantity: Number(quantity) 
+    const cartItems = Object.entries(cart).map(([productId, quantity]) => ({
+      productId,
+      quantity: Number(quantity)
     }));
     if (cartItems.length === 0) return;
-    
+
     // Validate that all products exist
     const invalidProducts = cartItems.filter(item => !products.find(p => p.id === item.productId));
     if (invalidProducts.length > 0) {
@@ -241,19 +245,15 @@ export default function Tables() {
       });
       return;
     }
-    
-    console.log('Adding items to order:', { orderId: selectedTable.order.id, items: cartItems });
-    console.log('Cart:', cart);
-    console.log('Selected table:', selectedTable);
-    console.log('Cart items details:', JSON.stringify(cartItems, null, 2));
+
     addItemsMutation.mutate({ orderId: selectedTable.order.id, items: cartItems });
   };
 
   const handleCreateOrderFromCart = () => {
     if (!selectedTable) return;
-    const cartItems = Object.entries(cart).map(([productId, quantity]) => ({ 
-      productId, 
-      quantity: Number(quantity) 
+    const cartItems = Object.entries(cart).map(([productId, quantity]) => ({
+      productId,
+      quantity: Number(quantity)
     }));
     if (cartItems.length === 0) return;
     tableOrderMutation.mutate({ tableId: selectedTable.id, items: cartItems, branchId: selectedTable.branchId });
@@ -287,12 +287,12 @@ export default function Tables() {
       preConfirm: () => {
         const number = document.getElementById('swal-input1').value;
         const capacity = document.getElementById('swal-input2').value;
-        
+
         if (!number || !capacity) {
           Swal.showValidationMessage('يرجى ملء جميع الحقول');
           return false;
         }
-        
+
         return { number: parseInt(number), capacity: parseInt(capacity), branchId: defaultBranchId };
       }
     });
@@ -303,7 +303,8 @@ export default function Tables() {
   };
 
   const handleSplitBill = () => {
-    if (selectedItems.length === 0) {
+    const itemIds = Object.keys(selectedItems);
+    if (itemIds.length === 0) {
       Swal.fire({
         icon: 'warning',
         title: 'تحذير',
@@ -313,26 +314,107 @@ export default function Tables() {
       });
       return;
     }
-    splitBillMutation.mutate({ 
-      orderId: selectedTable.order.id, 
-      itemIds: selectedItems 
-    });
-  };
-
-  const handleTransfer = (toTableId) => {
-    transferMutation.mutate({
+    splitBillMutation.mutate({
       orderId: selectedTable.order.id,
-      fromTableId: selectedTable.id,
-      toTableId
+      items: itemIds.map((itemId) => ({ itemId, quantity: selectedItems[itemId] }))
     });
   };
 
-  const toggleItemSelection = (itemId) => {
-    setSelectedItems(prev => 
-      prev.includes(itemId) 
-        ? prev.filter(id => id !== itemId)
-        : [...prev, itemId]
-    );
+  const handleTransfer = async () => {
+    const itemIds = Object.keys(selectedTransferItems);
+    if (itemIds.length === 0) {
+      Swal.fire({
+        icon: 'warning',
+        title: 'تحذير',
+        text: 'يرجى اختيار صنف واحد على الأقل للنقل (حدد من قائمة الأصناف فوق)',
+        confirmButtonText: 'حسناً',
+        confirmButtonColor: '#f59e0b'
+      });
+      return;
+    }
+
+    // Table options for the destination select. NOTE: SweetAlert2's
+    // `input: 'select'` renders a native <select>, and a native <option>
+    // cannot contain nested HTML (divs/spans) — the browser just shows the
+    // raw tags as text. Plain-text labels only.
+    const tableOptions = tables
+      .filter(t => t.id !== selectedTable.id)
+      .reduce((acc, t) => {
+        const statusText = t.status === 'available' ? 'فاضية' : t.status === 'occupied' ? 'مشغولة' : 'محجوزة';
+        acc[t.id] = `# ${t.number} — ${statusText}`;
+        return acc;
+      }, {});
+
+    if (Object.keys(tableOptions).length === 0) {
+      Swal.fire({
+        icon: 'warning',
+        title: 'تحذير',
+        text: 'لا توجد ترابيزات متاحة للنقل',
+        confirmButtonText: 'حسناً',
+        confirmButtonColor: '#f59e0b'
+      });
+      return;
+    }
+
+    const { value: toTableId } = await Swal.fire({
+      title: 'اختر الترابيزة للنقل',
+      text: 'جميع الترابيزات المتاحة (فاضية ومشغولة)',
+      input: 'select',
+      inputOptions: tableOptions,
+      inputPlaceholder: 'اختر الترابيزة',
+      showCancelButton: true,
+      confirmButtonText: 'نقل',
+      cancelButtonText: 'إلغاء',
+      confirmButtonColor: '#10b981',
+      cancelButtonColor: '#ef4444'
+    });
+
+    if (toTableId) {
+      transferMutation.mutate({
+        orderId: selectedTable.order.id,
+        fromTableId: selectedTable.id,
+        toTableId,
+        items: itemIds.map((itemId) => ({ itemId, quantity: selectedTransferItems[itemId] }))
+      });
+    }
+  };
+
+  // Toggle an item in/out of the split-bill selection. When newly selected, it
+  // defaults to the item's full remaining (unpaid) quantity.
+  const toggleItemSelection = (itemId, maxQuantity) => {
+    setSelectedItems(prev => {
+      if (itemId in prev) {
+        const next = { ...prev };
+        delete next[itemId];
+        return next;
+      }
+      return { ...prev, [itemId]: maxQuantity };
+    });
+  };
+
+  // Clamp the chosen split quantity to [1, maxQuantity].
+  const setSplitItemQuantity = (itemId, quantity, maxQuantity) => {
+    const clamped = Math.max(1, Math.min(Number(quantity) || 1, maxQuantity));
+    setSelectedItems(prev => ({ ...prev, [itemId]: clamped }));
+  };
+
+  // Toggle an item in/out of the transfer selection. When newly selected, it
+  // defaults to the item's full remaining (unpaid) quantity.
+  const toggleTransferItemSelection = (itemId, maxQuantity) => {
+    setSelectedTransferItems(prev => {
+      if (itemId in prev) {
+        const next = { ...prev };
+        delete next[itemId];
+        return next;
+      }
+      return { ...prev, [itemId]: maxQuantity };
+    });
+  };
+
+  // Clamp the chosen transfer quantity to [1, maxQuantity].
+  const setTransferItemQuantity = (itemId, quantity, maxQuantity) => {
+    const clamped = Math.max(1, Math.min(Number(quantity) || 1, maxQuantity));
+    setSelectedTransferItems(prev => ({ ...prev, [itemId]: clamped }));
   };
 
   if (isLoading) {
@@ -465,7 +547,7 @@ export default function Tables() {
       ) : (
         <div className="space-y-6">
           <button
-            onClick={() => setSelectedTable(null)}
+            onClick={() => setSelectedTableId(null)}
             className="text-brand-600 hover:text-brand-700 font-medium flex items-center gap-2"
           >
             <ArrowRight size={20} className="rotate-180" />
@@ -480,6 +562,18 @@ export default function Tables() {
               </span>
             </div>
 
+            {showSplitBill && (
+              <p className="text-sm text-brand-600 bg-brand-50 border border-brand-200 rounded-lg p-3 mb-4">
+                حدد الأصناف اللي عايز تحسبها بالضغط على المربع ✓ جنب كل صنف. لو الصنف عدده أكتر من واحد، تقدر تحدد أي كمية منه عن طريق الرقم اللي بيظهر تحته.
+              </p>
+            )}
+
+            {showTransfer && (
+              <p className="text-sm text-blue-600 bg-blue-50 border border-blue-200 rounded-lg p-3 mb-4">
+                حدد الأصناف اللي عايز تنقلها بالضغط على المربع ✓ جنب كل صنف. لو الصنف عدده أكتر من واحد، تقدر تحدد أي كمية منه عن طريق الرقم اللي بيظهر تحته.
+              </p>
+            )}
+
             {selectedTable.order ? (
               <div className="space-y-4">
                 <div className="border rounded-lg p-4">
@@ -488,18 +582,23 @@ export default function Tables() {
                     {selectedTable.order.items?.map((item) => {
                       const remainingQuantity = item.quantity - item.paidQuantity;
                       const isFullyPaid = remainingQuantity <= 0;
+                      const isChecked = showSplitBill
+                        ? item.id in selectedItems
+                        : showTransfer
+                          ? item.id in selectedTransferItems
+                          : false;
                       return (
-                        <li 
-                          key={item.id} 
+                        <li
+                          key={item.id}
                           className={`flex items-center justify-between p-2 rounded ${isFullyPaid ? 'bg-gray-50 opacity-50' : 'bg-gray-100'}`}
                         >
                           <div className="flex items-center gap-3">
-                            {showSplitBill && !isFullyPaid && (
+                            {(showSplitBill || showTransfer) && !isFullyPaid && (
                               <button
-                                onClick={() => toggleItemSelection(item.id)}
-                                className={`p-1 rounded ${selectedItems.includes(item.id) ? 'bg-brand-500 text-white' : 'bg-gray-200'}`}
+                                onClick={() => showSplitBill ? toggleItemSelection(item.id, remainingQuantity) : toggleTransferItemSelection(item.id, remainingQuantity)}
+                                className={`p-1 rounded ${isChecked ? 'bg-brand-500 text-white' : 'bg-gray-200'}`}
                               >
-                                {selectedItems.includes(item.id) ? <Check size={16} /> : <div className="w-4 h-4" />}
+                                {isChecked ? <Check size={16} /> : <div className="w-4 h-4" />}
                               </button>
                             )}
                             <div>
@@ -511,6 +610,36 @@ export default function Tables() {
                                 <p className="text-xs text-green-600">
                                   تم حساب {item.paidQuantity} / {item.quantity}
                                 </p>
+                              )}
+                              {showSplitBill && isChecked && remainingQuantity > 1 && (
+                                <div className="flex items-center gap-2 mt-1">
+                                  <span className="text-xs text-gray-500">الكمية المحسوبة:</span>
+                                  <input
+                                    type="number"
+                                    min={1}
+                                    max={remainingQuantity}
+                                    value={selectedItems[item.id]}
+                                    onChange={(e) => setSplitItemQuantity(item.id, e.target.value, remainingQuantity)}
+                                    onClick={(e) => e.stopPropagation()}
+                                    className="w-16 border rounded px-2 py-0.5 text-sm"
+                                  />
+                                  <span className="text-xs text-gray-400">من {remainingQuantity}</span>
+                                </div>
+                              )}
+                              {showTransfer && isChecked && remainingQuantity > 1 && (
+                                <div className="flex items-center gap-2 mt-1">
+                                  <span className="text-xs text-gray-500">الكمية المنقولة:</span>
+                                  <input
+                                    type="number"
+                                    min={1}
+                                    max={remainingQuantity}
+                                    value={selectedTransferItems[item.id]}
+                                    onChange={(e) => setTransferItemQuantity(item.id, e.target.value, remainingQuantity)}
+                                    onClick={(e) => e.stopPropagation()}
+                                    className="w-16 border rounded px-2 py-0.5 text-sm"
+                                  />
+                                  <span className="text-xs text-gray-400">من {remainingQuantity}</span>
+                                </div>
                               )}
                             </div>
                           </div>
@@ -558,19 +687,37 @@ export default function Tables() {
                           حساب المحدد
                         </button>
                         <button
-                          onClick={() => { setShowSplitBill(false); setSelectedItems([]); }}
+                          onClick={() => { setShowSplitBill(false); setSelectedItems({}); }}
                           className="px-4 bg-gray-300 hover:bg-gray-400 text-gray-700 rounded-lg py-2 font-medium"
                         >
                           إلغاء
                         </button>
                       </>
                     )}
-                    <button
-                      onClick={() => setShowTransfer(true)}
-                      className="flex-1 bg-blue-500 hover:bg-blue-600 text-white rounded-lg py-2 font-medium"
-                    >
-                      نقل الطلب
-                    </button>
+                    {!showTransfer ? (
+                      <button
+                        onClick={() => setShowTransfer(true)}
+                        className="flex-1 bg-blue-500 hover:bg-blue-600 text-white rounded-lg py-2 font-medium"
+                      >
+                        نقل الطلب
+                      </button>
+                    ) : (
+                      <>
+                        <button
+                          onClick={handleTransfer}
+                          disabled={transferMutation.isPending}
+                          className="flex-1 bg-green-500 hover:bg-green-600 text-white rounded-lg py-2 font-medium disabled:opacity-50"
+                        >
+                          نقل المحدد
+                        </button>
+                        <button
+                          onClick={() => { setShowTransfer(false); setSelectedTransferItems({}); }}
+                          className="px-4 bg-gray-300 hover:bg-gray-400 text-gray-700 rounded-lg py-2 font-medium"
+                        >
+                          إلغاء
+                        </button>
+                      </>
+                    )}
                   </div>
                 </div>
               </div>
@@ -587,33 +734,6 @@ export default function Tables() {
               </div>
             )}
           </div>
-
-          {showTransfer && (
-            <div className="bg-white rounded-xl shadow p-6">
-              <h3 className="font-semibold mb-4">نقل الطلب لترابيزة فاضية</h3>
-              <div className="grid grid-cols-2 sm:grid-cols-3 md:grid-cols-4 gap-3">
-                {tables
-                  .filter(t => t.status === 'available' && t.id !== selectedTable.id)
-                  .map((table) => (
-                    <button
-                      key={table.id}
-                      onClick={() => handleTransfer(table.id)}
-                      disabled={transferMutation.isPending}
-                      className="bg-green-100 text-green-700 border-2 border-green-300 rounded-lg p-3 hover:bg-green-200 transition-colors disabled:opacity-50"
-                    >
-                      <p className="font-bold text-lg">#{table.number}</p>
-                      <p className="text-sm">فاضية</p>
-                    </button>
-                  ))}
-              </div>
-              <button
-                onClick={() => setShowTransfer(false)}
-                className="mt-4 text-gray-600 hover:text-gray-800 font-medium"
-              >
-                إلغاء
-              </button>
-            </div>
-          )}
         </div>
       )}
     </Layout>

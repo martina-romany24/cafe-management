@@ -42,13 +42,34 @@ const addItemsSchema = z.object({
     .min(1),
 });
 
+// `items`: array of { itemId, quantity } — quantity is how many units of that
+// item are being paid for now (can be less than the item's remaining quantity).
 const splitBillSchema = z.object({
-  itemIds: z.array(z.string().uuid()).min(1),
+  items: z
+    .array(
+      z.object({
+        itemId: z.string().uuid(),
+        quantity: z.number().int().positive(),
+      })
+    )
+    .min(1),
 });
 
+// `items` is OPTIONAL: when provided, only the given quantity of each specified
+// order item is moved to the destination table (partial transfer); when omitted,
+// the whole order is transferred (legacy behavior).
 const transferOrderSchema = z.object({
   fromTableId: z.string().uuid(),
   toTableId: z.string().uuid(),
+  items: z
+    .array(
+      z.object({
+        itemId: z.string().uuid(),
+        quantity: z.number().int().positive(),
+      })
+    )
+    .min(1)
+    .optional(),
 });
 
 router.post('/', authenticate, requireRole('admin', 'branch_manager'), validate(orderCreateSchema), controller.create);
@@ -60,13 +81,7 @@ router.get('/all', authenticate, requireRole('admin'), controller.getAllOrders);
 // Table-specific order routes (must come before /:id routes)
 router.post('/table-order', authenticate, requireRole('admin', 'branch_manager'), validate(tableOrderCreateSchema), controller.createTableOrder);
 router.get('/table/:tableId', authenticate, requireRole('admin', 'branch_manager'), controller.getOrderByTable);
-router.post('/:id/items', authenticate, requireRole('admin', 'branch_manager'), (req, res, next) => {
-  console.log('POST /:id/items route hit');
-  console.log('Params:', req.params);
-  console.log('Body:', req.body);
-  console.log('User:', req.user);
-  next();
-}, validate(addItemsSchema), controller.addItemsToOrder);
+router.post('/:id/items', authenticate, requireRole('admin', 'branch_manager'), validate(addItemsSchema), controller.addItemsToOrder);
 router.post('/:id/split-bill', authenticate, requireRole('admin', 'branch_manager'), validate(splitBillSchema), controller.splitBill);
 router.post('/:id/transfer', authenticate, requireRole('admin', 'branch_manager'), validate(transferOrderSchema), controller.transferOrder);
 

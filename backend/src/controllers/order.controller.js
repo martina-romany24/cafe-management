@@ -88,25 +88,18 @@ async function createTableOrder(req, res, next) {
 async function addItemsToOrder(req, res, next) {
   try {
     const { items } = req.body;
-    console.log('addItemsToOrder - orderId:', req.params.id, 'items:', items);
-    console.log('Request body:', req.body);
-    console.log('Request params:', req.params);
     const order = await orderService.addItemsToOrder(req.params.id, items);
-    console.log('Emitting order_updated event for order:', order.id);
     req.io.to(`branch:${order.branchId}`).emit('order_updated', { orderId: order.id });
     res.json(order);
   } catch (err) {
-    console.error('addItemsToOrder error:', err);
-    console.error('Error message:', err.message);
-    console.error('Error status:', err.status);
     next(err);
   }
 }
 
 async function splitBill(req, res, next) {
   try {
-    const { itemIds } = req.body;
-    const result = await orderService.splitBill(req.params.id, itemIds);
+    const { items } = req.body;
+    const result = await orderService.splitBill(req.params.id, items);
     // Get order to find branchId
     const order = await prisma.order.findUnique({
       where: { id: req.params.id },
@@ -123,9 +116,11 @@ async function splitBill(req, res, next) {
 
 async function transferOrder(req, res, next) {
   try {
-    const { fromTableId, toTableId } = req.body;
-    const order = await orderService.transferOrder(req.params.id, fromTableId, toTableId, req.user.id);
-    req.io.to(`branch:${order.branchId}`).emit('table_transferred', { orderId: req.params.id, fromTableId, toTableId });
+    // `items` (array of { itemId, quantity }) is optional — when present, only
+    // those quantities are moved; when absent, the whole order is transferred.
+    const { fromTableId, toTableId, items } = req.body;
+    const order = await orderService.transferOrder(req.params.id, fromTableId, toTableId, req.user.id, items);
+    req.io.to(`branch:${order.branchId}`).emit('table_transferred', { orderId: req.params.id, fromTableId, toTableId, items });
     res.json(order);
   } catch (err) {
     next(err);

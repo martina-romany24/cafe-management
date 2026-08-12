@@ -41,10 +41,39 @@ export default function AdminMonthlyReports() {
     window.URL.revokeObjectURL(url);
   }
 
-  const chartData = reports.map((r) => ({
-    branchName: r.branch.name,
-    branchProfit: Number(r.branchProfit),
-    hqRevenue: Number(r.hqRevenue),
+  // Aggregate reports by branch to handle multiple entries
+  const aggregatedReports = reports.reduce((acc, r) => {
+    const branchName = r.branch.name;
+    if (!acc[branchName]) {
+      acc[branchName] = {
+        branchName,
+        totalSales: 0,
+        baseCost: 0,
+        branchProfit: 0,
+        hqRevenue: 0,
+        ordersCount: 0,
+      };
+    }
+    acc[branchName].totalSales += Number(r.totalSales);
+    acc[branchName].baseCost += Number(r.baseCost);
+    acc[branchName].branchProfit += Number(r.branchProfit);
+    acc[branchName].hqRevenue += Number(r.hqRevenue);
+    acc[branchName].ordersCount += r.ordersCount;
+    return acc;
+  }, {});
+
+  const aggregatedReportsArray = Object.values(aggregatedReports).map((r) => ({
+    ...r,
+    totalSales: Math.round(r.totalSales * 100) / 100,
+    baseCost: Math.round(r.baseCost * 100) / 100,
+    branchProfit: Math.round(r.branchProfit * 100) / 100,
+    hqRevenue: Math.round(r.hqRevenue * 100) / 100,
+  }));
+
+  const chartData = aggregatedReportsArray.map((r) => ({
+    branchName: r.branchName,
+    branchProfit: r.branchProfit,
+    hqRevenue: r.hqRevenue,
   }));
 
   return (
@@ -108,13 +137,13 @@ export default function AdminMonthlyReports() {
                 </tr>
               </thead>
               <tbody>
-                {reports.map((r) => (
-                  <tr key={r.id} className="border-t">
-                    <td className="p-3 font-medium">{r.branch.name}</td>
-                    <td className="p-3">{Number(r.totalSales).toFixed(2)}</td>
-                    <td className="p-3">{Number(r.baseCost).toFixed(2)}</td>
-                    <td className="p-3 text-green-700">{Number(r.branchProfit).toFixed(2)}</td>
-                    <td className="p-3 text-brand-700">{Number(r.hqRevenue).toFixed(2)}</td>
+                {aggregatedReportsArray.map((r, index) => (
+                  <tr key={index} className="border-t">
+                    <td className="p-3 font-medium">{r.branchName}</td>
+                    <td className="p-3">{r.totalSales.toFixed(2)}</td>
+                    <td className="p-3">{r.baseCost.toFixed(2)}</td>
+                    <td className="p-3 text-green-700">{r.branchProfit.toFixed(2)}</td>
+                    <td className="p-3 text-brand-700">{r.hqRevenue.toFixed(2)}</td>
                     <td className="p-3">{r.ordersCount}</td>
                   </tr>
                 ))}
