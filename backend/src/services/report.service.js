@@ -87,6 +87,23 @@ async function generateForAllBranches(month, year) {
 }
 
 async function listReports({ month, year }) {
+  const now = new Date();
+  const currentMonth = now.getMonth() + 1;
+  const currentYear = now.getFullYear();
+  const isCurrentMonth = Number(month) === currentMonth && Number(year) === currentYear;
+
+  if (isCurrentMonth) {
+    // For current month, calculate reports in real-time
+    const branches = await prisma.branch.findMany({ where: { isActive: true } });
+    const results = [];
+    for (const branch of branches) {
+      const report = await generateForBranch(branch.id, Number(month), Number(year));
+      results.push({ ...report, branch: { id: branch.id, name: branch.name } });
+    }
+    return results;
+  }
+
+  // For past months, return stored reports
   return prisma.monthlyReport.findMany({
     where: { ...(month ? { month: Number(month) } : {}), ...(year ? { year: Number(year) } : {}) },
     include: { branch: { select: { id: true, name: true } } },

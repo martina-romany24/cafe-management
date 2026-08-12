@@ -54,7 +54,6 @@ export const getAvailableTables = (params) => apiClient.get('/tables/available',
 
 // --- Monthly Reports ---
 export const getMonthlyReports = (params) => apiClient.get('/reports', { params }).then((r) => r.data);
-export const recalculateReport = (data) => apiClient.post('/reports/recalculate', data).then((r) => r.data);
 export const exportReportExcelUrl = (params) =>
   `${apiClient.defaults.baseURL}/reports/export/excel?month=${params.month}&year=${params.year}`;
 export const exportReportPdfUrl = (params) =>

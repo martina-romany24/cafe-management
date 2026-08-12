@@ -1,10 +1,10 @@
 import { useState } from 'react';
-import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
+import { useQuery } from '@tanstack/react-query';
 import { BarChart, Bar, XAxis, YAxis, Tooltip, Legend, ResponsiveContainer, CartesianGrid } from 'recharts';
-import { Download, RefreshCcw } from 'lucide-react';
+import { Download } from 'lucide-react';
 import Layout from '../../components/Layout';
 import { adminLinks } from './links';
-import { getMonthlyReports, recalculateReport } from '../../api/endpoints';
+import { getMonthlyReports } from '../../api/endpoints';
 import { apiClient } from '../../api/client';
 
 const MONTHS = [
@@ -16,16 +16,13 @@ export default function AdminMonthlyReports() {
   const now = new Date();
   const [month, setMonth] = useState(now.getMonth() + 1);
   const [year, setYear] = useState(now.getFullYear());
-  const queryClient = useQueryClient();
 
   const { data: reports = [], isLoading } = useQuery({
     queryKey: ['monthly-reports', month, year],
     queryFn: () => getMonthlyReports({ month, year }),
-  });
-
-  const recalcMutation = useMutation({
-    mutationFn: () => recalculateReport({ month, year }),
-    onSuccess: () => queryClient.invalidateQueries({ queryKey: ['monthly-reports', month, year] }),
+    refetchOnMount: true,
+    refetchOnWindowFocus: true,
+    refetchInterval: 3000, // Refetch every 3 seconds
   });
 
   async function handleExport(type) {
@@ -99,12 +96,6 @@ export default function AdminMonthlyReports() {
           />
         </div>
         <button
-          onClick={() => recalcMutation.mutate()}
-          className="flex items-center gap-2 bg-brand-500 hover:bg-brand-600 text-white px-4 py-2 rounded-lg text-sm"
-        >
-          <RefreshCcw size={16} /> إعادة حساب يدوي
-        </button>
-        <button
           onClick={() => handleExport('excel')}
           className="flex items-center gap-2 border border-brand-400 text-brand-600 px-4 py-2 rounded-lg text-sm hover:bg-brand-50"
         >
@@ -121,7 +112,7 @@ export default function AdminMonthlyReports() {
       {isLoading ? (
         <p className="text-gray-400">جارِ التحميل...</p>
       ) : reports.length === 0 ? (
-        <p className="text-gray-400">لا توجد تقارير لهذا الشهر بعد. اضغط "إعادة حساب يدوي" لتوليدها.</p>
+        <p className="text-gray-400">لا توجد تقارير لهذا الشهر بعد.</p>
       ) : (
         <>
           <div className="bg-white rounded-xl shadow overflow-hidden mb-8">
