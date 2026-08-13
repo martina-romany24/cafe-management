@@ -72,6 +72,61 @@ function round2(n) {
 }
 
 /**
+ * Generates report for admin (HQ) orders - orders without a branch (branchId = null)
+ * These are orders placed on admin-only tables from the admin tables page.
+ */
+async function generateForAdmin(month, year) {
+  const from = new Date(Date.UTC(year, month - 1, 1));
+  const to = new Date(Date.UTC(year, month, 1));
+
+  const orders = await prisma.order.findMany({
+    where: { branchId: null, createdAt: { gte: from, lt: to } },
+    include: { items: { include: { product: true } } },
+  });
+
+  if (orders.length === 0) {
+    return null; // No admin orders for this month
+  }
+
+  let totalSales = 0;
+  let baseCost = 0;
+  let branchProfit = 0;
+  const productTally = {};
+
+  for (const order of orders) {
+    for (const item of order.items) {
+      const finalPrice = Number(item.priceAtSale);
+      const basePrice = Number(item.basePriceAtSale);
+      totalSales += finalPrice * item.quantity;
+      baseCost += basePrice * item.quantity;
+      branchProfit += (finalPrice - basePrice) * item.quantity;
+
+      const key = item.productId;
+      if (!productTally[key]) productTally[key] = { productId: key, name: item.product.name, quantity: 0 };
+      productTally[key].quantity += item.quantity;
+    }
+  }
+
+  const hqRevenue = baseCost;
+  const topProducts = Object.values(productTally)
+    .sort((a, b) => b.quantity - a.quantity)
+    .slice(0, 5);
+
+  return {
+    branch: { id: 'admin-hq', name: 'الإدارة الرئيسية (ابن الباشا)' },
+    month,
+    year,
+    totalSales: round2(totalSales),
+    baseCost: round2(baseCost),
+    branchProfit: round2(branchProfit),
+    hqRevenue: round2(hqRevenue),
+    ordersCount: orders.length,
+    topProducts,
+    generatedAt: new Date(),
+  };
+}
+
+/**
  * Generates the monthly report for ALL active branches. Called by node-cron
  * on the 1st of each month (for the previous month), and available as a
  * manual "recalculate" action from the admin UI for any past month.
@@ -100,15 +155,30 @@ async function listReports({ month, year }) {
       const report = await generateForBranch(branch.id, Number(month), Number(year));
       results.push({ ...report, branch: { id: branch.id, name: branch.name } });
     }
+
+    // Add admin (HQ) report for orders without branch (branchId = null)
+    const adminReport = await generateForAdmin(Number(month), Number(year));
+    if (adminReport) {
+      results.push(adminReport);
+    }
+
     return results;
   }
 
   // For past months, return stored reports
-  return prisma.monthlyReport.findMany({
+  const storedReports = await prisma.monthlyReport.findMany({
     where: { ...(month ? { month: Number(month) } : {}), ...(year ? { year: Number(year) } : {}) },
     include: { branch: { select: { id: true, name: true } } },
     orderBy: [{ year: 'desc' }, { month: 'desc' }],
   });
+
+  // For past months, also calculate admin report on-the-fly (not stored)
+  const adminReport = await generateForAdmin(Number(month), Number(year));
+  if (adminReport) {
+    storedReports.push(adminReport);
+  }
+
+  return storedReports;
 }
 
 async function exportExcel(month, year) {

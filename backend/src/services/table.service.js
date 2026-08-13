@@ -83,6 +83,37 @@ async function updateStatus(id, status) {
   });
 }
 
+/**
+ * Permanently detaches a table from its branch (branchId -> null), turning it
+ * into an admin-only table: no branch pricing, not listed under any branch,
+ * and future orders on it are excluded from branch reports.
+ */
+async function unassignFromBranch(id) {
+  const table = await prisma.table.findUnique({ where: { id } });
+
+  if (!table) {
+    const err = new Error('Table not found');
+    err.status = 404;
+    throw err;
+  }
+
+  const activeOrder = await prisma.order.findFirst({
+    where: { tableId: id, status: 'open' },
+  });
+
+  if (activeOrder) {
+    const err = new Error('Cannot unassign a table with an active order — close or transfer the order first');
+    err.status = 400;
+    throw err;
+  }
+
+  return prisma.table.update({
+    where: { id },
+    data: { branchId: null },
+    include: { branch: true },
+  });
+}
+
 async function remove(id) {
   const table = await prisma.table.findUnique({
     where: { id },
@@ -112,20 +143,21 @@ async function remove(id) {
 
 async function getAvailableTables(branchId) {
   return prisma.table.findMany({
-    where: { 
-      branchId,
+    where: {
+      branchId: branchId ?? null,
       status: 'available',
     },
     orderBy: { number: 'asc' },
   });
 }
 
-module.exports = { 
-  list, 
-  get, 
-  create, 
-  update, 
-  updateStatus, 
-  remove, 
-  getAvailableTables 
+module.exports = {
+  list,
+  get,
+  create,
+  update,
+  updateStatus,
+  unassignFromBranch,
+  remove,
+  getAvailableTables
 };

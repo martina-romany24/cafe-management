@@ -19,7 +19,10 @@ const orderCreateSchema = z.object({
 });
 
 const tableOrderCreateSchema = z.object({
-  branchId: z.string().uuid().optional(), // required only for admin; ignored for branch_manager
+  // Unused by the controller now (branchId is always derived from the table
+  // itself), but the frontend still sends it — accept both undefined AND null
+  // (a branchless table's branchId is null) so validation doesn't reject it.
+  branchId: z.string().uuid().nullish(),
   tableId: z.string().uuid(),
   items: z
     .array(

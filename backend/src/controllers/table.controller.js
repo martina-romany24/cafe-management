@@ -25,10 +25,19 @@ async function get(req, res, next) {
   }
 }
 
+// Branchless tables have no branch room to notify — always emit to 'hq' too
+// (where the admin connection lives) so admin dashboards stay live either way.
+function emitTableUpdate(req, table, payload) {
+  req.io.to('hq').emit('table_updated', payload);
+  if (table.branchId) {
+    req.io.to(`branch:${table.branchId}`).emit('table_updated', payload);
+  }
+}
+
 async function create(req, res, next) {
   try {
     const table = await tableService.create(req.body);
-    req.io.to(`branch:${table.branchId}`).emit('table_updated', { type: 'created', tableId: table.id });
+    emitTableUpdate(req, table, { type: 'created', tableId: table.id });
     res.status(201).json(table);
   } catch (err) {
     next(err);
@@ -38,7 +47,7 @@ async function create(req, res, next) {
 async function update(req, res, next) {
   try {
     const table = await tableService.update(req.params.id, req.body);
-    req.io.to(`branch:${table.branchId}`).emit('table_updated', { type: 'updated', tableId: table.id });
+    emitTableUpdate(req, table, { type: 'updated', tableId: table.id });
     res.json(table);
   } catch (err) {
     next(err);
@@ -49,7 +58,17 @@ async function updateStatus(req, res, next) {
   try {
     const { status } = req.body;
     const table = await tableService.updateStatus(req.params.id, status);
-    req.io.to(`branch:${table.branchId}`).emit('table_updated', { type: 'status_changed', tableId: table.id, status });
+    emitTableUpdate(req, table, { type: 'status_changed', tableId: table.id, status });
+    res.json(table);
+  } catch (err) {
+    next(err);
+  }
+}
+
+async function unassignBranch(req, res, next) {
+  try {
+    const table = await tableService.unassignFromBranch(req.params.id);
+    emitTableUpdate(req, table, { type: 'unassigned', tableId: table.id });
     res.json(table);
   } catch (err) {
     next(err);
@@ -59,7 +78,7 @@ async function updateStatus(req, res, next) {
 async function remove(req, res, next) {
   try {
     const table = await tableService.remove(req.params.id);
-    req.io.to(`branch:${table.branchId}`).emit('table_updated', { type: 'deleted', tableId: table.id });
+    emitTableUpdate(req, table, { type: 'deleted', tableId: table.id });
     res.json({ message: 'Table deleted', table });
   } catch (err) {
     next(err);
@@ -69,7 +88,9 @@ async function remove(req, res, next) {
 async function getAvailable(req, res, next) {
   try {
     const branchId = req.user.role === 'admin' ? req.query.branchId : req.user.branchId;
-    if (!branchId) return res.status(400).json({ message: 'branchId is required' });
+    if (!branchId && req.user.role !== 'admin') {
+      return res.status(400).json({ message: 'branchId is required' });
+    }
 
     const tables = await tableService.getAvailableTables(branchId);
     res.json(tables);
@@ -78,12 +99,13 @@ async function getAvailable(req, res, next) {
   }
 }
 
-module.exports = { 
-  list, 
-  get, 
-  create, 
-  update, 
-  updateStatus, 
-  remove, 
-  getAvailable 
+module.exports = {
+  list,
+  get,
+  create,
+  update,
+  updateStatus,
+  unassignBranch,
+  remove,
+  getAvailable
 };

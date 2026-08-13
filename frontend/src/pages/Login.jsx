@@ -34,7 +34,7 @@ export default function Login() {
           <div className="bg-brand-500 text-white rounded-full p-3 mb-3">
             <Coffee size={28} />
           </div>
-          <h1 className="text-xl font-bold text-brand-800">نظام إدارة الكافيه</h1>
+          <h1 className="text-xl font-bold text-brand-800">Cafe Management System </h1>
           <p className="text-sm text-gray-500 mt-1">تسجيل الدخول للمتابعة</p>
         </div>
 
@@ -74,10 +74,7 @@ export default function Login() {
           </button>
         </form>
 
-        <div className="mt-6 text-xs text-gray-400 text-center leading-6">
-          حساب تجريبي (Admin): admin@cafe.com / Password123!<br />
-          حساب مدير فرع: manager1@cafe.com / Password123!
-        </div>
+
       </div>
     </div>
   );

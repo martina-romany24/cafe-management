@@ -95,7 +95,7 @@ export default function AdminMonthlyReports() {
             className="border rounded-lg px-3 py-2 text-sm w-24"
           />
         </div>
-        <button
+        {/* <button
           onClick={() => handleExport('excel')}
           className="flex items-center gap-2 border border-brand-400 text-brand-600 px-4 py-2 rounded-lg text-sm hover:bg-brand-50"
         >
@@ -106,7 +106,7 @@ export default function AdminMonthlyReports() {
           className="flex items-center gap-2 border border-brand-400 text-brand-600 px-4 py-2 rounded-lg text-sm hover:bg-brand-50"
         >
           <Download size={16} /> PDF
-        </button>
+        </button> */}
       </div>
 
       {isLoading ? (

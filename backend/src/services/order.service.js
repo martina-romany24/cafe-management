@@ -79,7 +79,7 @@ async function branchSalesSummary(branchId, { from, to } = {}) {
  */
 async function adminSalesReport({ branchId, from, to } = {}) {
   const where = {
-    ...(branchId ? { branchId } : {}),
+    branchId: branchId ? branchId : { not: null }, // exclude branchless (admin-only table) orders entirely
     ...(from || to ? { createdAt: { gte: from, lte: to } } : {}),
   };
 
@@ -190,8 +190,12 @@ async function getAllOrders({ branchId, from, to } = {}) {
 /**
  * Creates an order linked to a specific table. Used when a customer sits at a table.
  * If duplicate products are in the items array, they are merged into a single item with combined quantity.
+ * branchId is no longer accepted as a parameter — it's always derived from the
+ * table itself (table.branchId), since the table is the source of truth for
+ * which branch (if any) an order belongs to. A branchless table (table.branchId
+ * === null) always uses the product's basePrice directly, with no branch lookup.
  */
-async function createTableOrder(branchId, userId, tableId, items) {
+async function createTableOrder(userId, tableId, items) {
   return prisma.$transaction(async (tx) => {
     // Check if table exists and is available
     const table = await tx.table.findUnique({
@@ -209,6 +213,8 @@ async function createTableOrder(branchId, userId, tableId, items) {
       err.status = 400;
       throw err;
     }
+
+    const branchId = table.branchId; // null for admin-only tables
 
     // Check if there's already an active order on this table (enforced by unique constraint)
     const existingOrder = await tx.order.findFirst({
@@ -229,16 +235,18 @@ async function createTableOrder(branchId, userId, tableId, items) {
     const mergedItems = {};
 
     for (const item of items) {
-      const pricing = await tx.branchProductPricing.findUnique({
-        where: { branchId_productId: { branchId, productId: item.productId } },
-        include: { product: true },
-      });
+      const pricing = branchId
+        ? await tx.branchProductPricing.findUnique({
+            where: { branchId_productId: { branchId, productId: item.productId } },
+            include: { product: true },
+          })
+        : null;
 
       let finalPrice;
       let basePrice;
 
       if (!pricing) {
-        // If no branch-specific pricing, get product directly and use basePrice
+        // No branch (or no branch-specific pricing): get product directly and use basePrice
         const product = await tx.product.findUnique({
           where: { id: item.productId },
         });
@@ -329,10 +337,12 @@ async function addItemsToOrder(orderId, items) {
     let additionalAmount = 0;
 
     for (const item of items) {
-      const pricing = await tx.branchProductPricing.findUnique({
-        where: { branchId_productId: { branchId: order.branchId, productId: item.productId } },
-        include: { product: true },
-      });
+      const pricing = order.branchId
+        ? await tx.branchProductPricing.findUnique({
+            where: { branchId_productId: { branchId: order.branchId, productId: item.productId } },
+            include: { product: true },
+          })
+        : null;
 
       let finalPrice;
       let basePrice;

@@ -2,6 +2,7 @@ import { Routes, Route, Navigate } from 'react-router-dom';
 import { useAuthStore } from './store/authStore';
 import { useSocket } from './hooks/useSocket';
 import ProtectedRoute from './routes/ProtectedRoute';
+import IntroSplash from './components/IntroSplash';
 
 import Login from './pages/Login';
 
@@ -27,27 +28,33 @@ export default function App() {
   useSocket();
 
   return (
-    <Routes>
-      <Route path="/" element={<HomeRedirect />} />
-      <Route path="/login" element={<Login />} />
+    <>
+      {/* Shown once on load, on top of whichever route renders below.
+          Self-timed (~3s) and unmounts itself — nothing else to wire up. */}
+      <IntroSplash />
 
-      <Route element={<ProtectedRoute allowedRoles={['admin']} />}>
-        <Route path="/admin" element={<AdminDashboard />} />
-        <Route path="/admin/orders" element={<AdminOrders />} />
-        <Route path="/admin/products" element={<AdminProducts />} />
-        <Route path="/admin/branches" element={<AdminBranches />} />
-        <Route path="/admin/managers" element={<AdminManagers />} />
-        <Route path="/admin/tables" element={<AdminTables />} />
-        <Route path="/admin/reports" element={<AdminReports />} />
-      </Route>
+      <Routes>
+        <Route path="/" element={<HomeRedirect />} />
+        <Route path="/login" element={<Login />} />
 
-      <Route element={<ProtectedRoute allowedRoles={['branch_manager']} />}>
-        <Route path="/branch" element={<BranchDashboard />} />
-        <Route path="/branch/pos" element={<BranchPOS />} />
-        <Route path="/branch/reports" element={<BranchReports />} />
-      </Route>
+        <Route element={<ProtectedRoute allowedRoles={['admin']} />}>
+          <Route path="/admin" element={<AdminDashboard />} />
+          <Route path="/admin/orders" element={<AdminOrders />} />
+          <Route path="/admin/products" element={<AdminProducts />} />
+          <Route path="/admin/branches" element={<AdminBranches />} />
+          <Route path="/admin/managers" element={<AdminManagers />} />
+          <Route path="/admin/tables" element={<AdminTables />} />
+          <Route path="/admin/reports" element={<AdminReports />} />
+        </Route>
 
-      <Route path="*" element={<Navigate to="/" replace />} />
-    </Routes>
+        <Route element={<ProtectedRoute allowedRoles={['branch_manager']} />}>
+          <Route path="/branch" element={<BranchDashboard />} />
+          <Route path="/branch/pos" element={<BranchPOS />} />
+          <Route path="/branch/reports" element={<BranchReports />} />
+        </Route>
+
+        <Route path="*" element={<Navigate to="/" replace />} />
+      </Routes>
+    </>
   );
 }

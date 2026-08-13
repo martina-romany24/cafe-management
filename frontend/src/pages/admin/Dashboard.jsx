@@ -44,19 +44,7 @@ export default function AdminDashboard() {
         )}
       </div>
 
-      <div className="bg-white rounded-xl shadow p-4">
-        <h2 className="font-semibold mb-4">الفروع النشطة</h2>
-        <ul className="space-y-2">
-          {branches.map((b) => (
-            <li key={b.id} className="flex justify-between border-b py-2 text-sm">
-              <span>{b.name}</span>
-              <span className={b.isActive ? 'text-green-600' : 'text-red-500'}>
-                {b.isActive ? 'نشط' : 'معطل'}
-              </span>
-            </li>
-          ))}
-        </ul>
-      </div>
+
     </Layout>
   );
 }

@@ -75,10 +75,14 @@ async function getAllOrders(req, res, next) {
 
 async function createTableOrder(req, res, next) {
   try {
-    const branchId = req.user.role === 'admin' ? req.body.branchId : req.user.branchId;
+    // branchId is no longer taken from the request — the service derives it
+    // from the table itself (table.branchId), which is the source of truth.
+    // This also makes branchless (admin-only) tables work correctly: no
+    // branchId needs to be supplied for them.
     const { tableId, items } = req.body;
-    const order = await orderService.createTableOrder(branchId, req.user.id, tableId, items);
-    req.io.to(`branch:${branchId}`).emit('order_created', { orderId: order.id, tableId });
+    const order = await orderService.createTableOrder(req.user.id, tableId, items);
+    const room = order.branchId ? `branch:${order.branchId}` : 'hq';
+    req.io.to(room).emit('order_created', { orderId: order.id, tableId });
     res.status(201).json(order);
   } catch (err) {
     next(err);
@@ -89,7 +93,7 @@ async function addItemsToOrder(req, res, next) {
   try {
     const { items } = req.body;
     const order = await orderService.addItemsToOrder(req.params.id, items);
-    req.io.to(`branch:${order.branchId}`).emit('order_updated', { orderId: order.id });
+    req.io.to(order.branchId ? `branch:${order.branchId}` : 'hq').emit('order_updated', { orderId: order.id });
     res.json(order);
   } catch (err) {
     next(err);
@@ -106,7 +110,7 @@ async function splitBill(req, res, next) {
       select: { branchId: true }
     });
     if (order) {
-      req.io.to(`branch:${order.branchId}`).emit('order_updated', { orderId: req.params.id });
+      req.io.to(order.branchId ? `branch:${order.branchId}` : 'hq').emit('order_updated', { orderId: req.params.id });
     }
     res.json(result);
   } catch (err) {
@@ -120,7 +124,7 @@ async function transferOrder(req, res, next) {
     // those quantities are moved; when absent, the whole order is transferred.
     const { fromTableId, toTableId, items } = req.body;
     const order = await orderService.transferOrder(req.params.id, fromTableId, toTableId, req.user.id, items);
-    req.io.to(`branch:${order.branchId}`).emit('table_transferred', { orderId: req.params.id, fromTableId, toTableId, items });
+    req.io.to(order.branchId ? `branch:${order.branchId}` : 'hq').emit('table_transferred', { orderId: req.params.id, fromTableId, toTableId, items });
     res.json(order);
   } catch (err) {
     next(err);

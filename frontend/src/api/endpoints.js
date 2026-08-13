@@ -49,6 +49,9 @@ export const getTable = (id) => apiClient.get(`/tables/${id}`).then((r) => r.dat
 export const createTable = (data) => apiClient.post('/tables', data).then((r) => r.data);
 export const updateTable = (id, data) => apiClient.put(`/tables/${id}`, data).then((r) => r.data);
 export const updateTableStatus = (id, data) => apiClient.patch(`/tables/${id}/status`, data).then((r) => r.data);
+// Permanently detaches a table from its branch (branchId -> null), turning it
+// into an admin-only table. Backed by PATCH /tables/:id/unassign-branch.
+export const unassignTableBranch = (id) => apiClient.patch(`/tables/${id}/unassign-branch`).then((r) => r.data);
 export const deleteTable = (id) => apiClient.delete(`/tables/${id}`).then((r) => r.data);
 export const getAvailableTables = (params) => apiClient.get('/tables/available', { params }).then((r) => r.data);
 

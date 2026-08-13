@@ -8,22 +8,6 @@ datasource db {
   directUrl = env("DIRECT_URL")
 }
 
-enum Role {
-  admin
-  branch_manager
-}
-
-enum MarginType {
-  percentage
-  fixed
-}
-
-enum TableStatus {
-  available
-  occupied
-  reserved
-}
-
 model User {
   id        String   @id @default(uuid())
   name      String
@@ -31,44 +15,42 @@ model User {
   password  String
   role      Role
   branchId  String?
-  branch    Branch?  @relation(fields: [branchId], references: [id])
   isActive  Boolean  @default(true)
   createdAt DateTime @default(now())
   updatedAt DateTime @updatedAt
   orders    Order[]
+  branch    Branch?  @relation(fields: [branchId], references: [id])
 
   @@map("users")
 }
 
 model Branch {
-  id        String   @id @default(uuid())
-  name      String
-  location  String?
-  isActive  Boolean  @default(true)
-  createdAt DateTime @default(now())
-  updatedAt DateTime @updatedAt
-
-  users          User[]
+  id             String                 @id @default(uuid())
+  name           String
+  location       String?
+  isActive       Boolean                @default(true)
+  createdAt      DateTime               @default(now())
+  updatedAt      DateTime               @updatedAt
   pricings       BranchProductPricing[]
-  orders         Order[]
   monthlyReports MonthlyReport[]
+  orders         Order[]
   tables         Table[]
+  users          User[]
 
   @@map("branches")
 }
 
 model Table {
-  id        String      @id @default(uuid())
-  branchId  String
-  number    Int
-  capacity  Int
-  status    TableStatus @default(available)
-  createdAt DateTime    @default(now())
-  updatedAt DateTime    @updatedAt
-
-  branch          Branch             @relation(fields: [branchId], references: [id])
-  transfersFrom   TableTransferLog[] @relation("FromTableTransfers")
-  transfersTo     TableTransferLog[] @relation("ToTableTransfers")
+  id            String             @id @default(uuid())
+  branchId      String?
+  number        Int
+  capacity      Int
+  status        TableStatus        @default(available)
+  createdAt     DateTime           @default(now())
+  updatedAt     DateTime           @updatedAt
+  transfersFrom TableTransferLog[] @relation("FromTableTransfers")
+  transfersTo   TableTransferLog[] @relation("ToTableTransfers")
+  branch        Branch?            @relation(fields: [branchId], references: [id])
 
   @@unique([branchId, number])
   @@map("tables")
@@ -76,7 +58,7 @@ model Table {
 
 model Product {
   id            String     @id @default(uuid())
-  name          String
+  name          String     @unique
   description   String?
   basePrice     Decimal    @db.Decimal(10, 2)
   defaultMargin Decimal    @default(20) @db.Decimal(12, 4)
@@ -100,27 +82,25 @@ model BranchProductPricing {
   marginValue Decimal    @db.Decimal(12, 4)
   createdAt   DateTime   @default(now())
   updatedAt   DateTime   @updatedAt
-
-  branch  Branch  @relation(fields: [branchId], references: [id])
-  product Product @relation(fields: [productId], references: [id])
+  branch      Branch     @relation(fields: [branchId], references: [id])
+  product     Product    @relation(fields: [productId], references: [id])
 
   @@unique([branchId, productId])
   @@map("branch_product_pricing")
 }
 
 model Order {
-  id          String   @id @default(uuid())
-  branchId    String
+  id          String      @id @default(uuid())
+  branchId    String?
   userId      String
-  tableId     String?  @unique
-  totalAmount Decimal  @db.Decimal(10, 2)
-  status      String   @default("open")
-  createdAt   DateTime @default(now())
-  updatedAt   DateTime @updatedAt
-
-  branch Branch      @relation(fields: [branchId], references: [id])
-  user   User        @relation(fields: [userId], references: [id])
-  items  OrderItem[]
+  totalAmount Decimal     @db.Decimal(10, 2)
+  createdAt   DateTime    @default(now())
+  status      String      @default("open")
+  tableId     String?     @unique
+  updatedAt   DateTime    @updatedAt
+  items       OrderItem[]
+  branch      Branch?     @relation(fields: [branchId], references: [id])
+  user        User        @relation(fields: [userId], references: [id])
 
   @@map("orders")
 }
@@ -134,23 +114,21 @@ model OrderItem {
   basePriceAtSale Decimal @db.Decimal(10, 2)
   paidQuantity    Int     @default(0)
   splitAmount     Decimal @default(0) @db.Decimal(10, 2)
-
-  order   Order   @relation(fields: [orderId], references: [id])
-  product Product @relation(fields: [productId], references: [id])
+  order           Order   @relation(fields: [orderId], references: [id])
+  product         Product @relation(fields: [productId], references: [id])
 
   @@map("order_items")
 }
 
 model TableTransferLog {
-  id              String   @id @default(uuid())
-  fromTableId     String
-  toTableId       String
-  orderId         String
-  transferredBy   String
-  transferredAt   DateTime @default(now())
-
-  fromTable Table @relation("FromTableTransfers", fields: [fromTableId], references: [id])
-  toTable   Table @relation("ToTableTransfers", fields: [toTableId], references: [id])
+  id            String   @id @default(uuid())
+  fromTableId   String
+  toTableId     String
+  orderId       String
+  transferredBy String
+  transferredAt DateTime @default(now())
+  fromTable     Table    @relation("FromTableTransfers", fields: [fromTableId], references: [id])
+  toTable       Table    @relation("ToTableTransfers", fields: [toTableId], references: [id])
 
   @@map("table_transfer_logs")
 }
@@ -167,9 +145,24 @@ model MonthlyReport {
   ordersCount  Int
   topProducts  Json?
   generatedAt  DateTime @default(now())
-
-  branch Branch @relation(fields: [branchId], references: [id])
+  branch       Branch   @relation(fields: [branchId], references: [id])
 
   @@unique([branchId, month, year])
   @@map("monthly_reports")
+}
+
+enum Role {
+  admin
+  branch_manager
+}
+
+enum MarginType {
+  percentage
+  fixed
+}
+
+enum TableStatus {
+  available
+  occupied
+  reserved
 }

@@ -78,8 +78,6 @@ export default function AdminProducts() {
                 <th className="p-3 text-right">التصنيف</th>
                 <th className="p-3 text-right">السعر الأساسي</th>
                 <th className="p-3 text-right">نسبة المكسب الافتراضية</th>
-                <th className="p-3 text-right">الحالة</th>
-                <th className="p-3 text-right">فروع مسعّرة</th>
                 <th className="p-3 text-right">إجراءات</th>
               </tr>
             </thead>
@@ -95,25 +93,7 @@ export default function AdminProducts() {
                       : `${p.defaultMargin} ج.م`}
                   </td>
                   <td className="p-3">
-                    <button
-                      onClick={() => activeMutation.mutate({ id: p.id, isActive: !p.isActive })}
-                      className={`px-2 py-1 rounded-full text-xs ${
-                        p.isActive ? 'bg-green-100 text-green-700' : 'bg-red-100 text-red-600'
-                      }`}
-                    >
-                      {p.isActive ? 'نشط' : 'معطل'}
-                    </button>
-                  </td>
-                  <td className="p-3 text-gray-500">{p.branchPricing?.length || 0} / {branches.length}</td>
-                  <td className="p-3">
                     <div className="flex gap-2">
-                      <button
-                        onClick={() => setPricingProduct(p)}
-                        title="هوامش الفروع"
-                        className="p-1.5 rounded hover:bg-brand-50 text-brand-600"
-                      >
-                        <Settings2 size={16} />
-                      </button>
                       <button
                         onClick={() => openEdit(p)}
                         title="تعديل"

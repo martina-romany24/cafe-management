@@ -4,7 +4,7 @@ import { Users, Clock, ArrowRight, Check, X, Plus, Minus, Trash2, ShoppingCart, 
 import Swal from 'sweetalert2';
 import Layout from '../../components/Layout';
 import { adminLinks } from './links';
-import { getTables, getAvailableTables, createTableOrder, getOrderByTable, splitBill, transferOrder, addItemsToOrder, getProducts, createTable, getBranches } from '../../api/endpoints';
+import { getTables, getAvailableTables, createTableOrder, getOrderByTable, splitBill, transferOrder, addItemsToOrder, getProducts, createTable, unassignTableBranch, getBranches } from '../../api/endpoints';
 
 export default function Tables() {
   const { data: tables = [], isLoading } = useQuery({ queryKey: ['tables'], queryFn: () => getTables({}) });
@@ -16,6 +16,7 @@ export default function Tables() {
   const [showTransfer, setShowTransfer] = useState(false);
   const [selectedItems, setSelectedItems] = useState({}); // { [itemId]: quantity }
   const [selectedTransferItems, setSelectedTransferItems] = useState({}); // { [itemId]: quantity }
+  const [selectAllTransfer, setSelectAllTransfer] = useState(false);
   const [cart, setCart] = useState({});
   const [showProducts, setShowProducts] = useState(false);
   const queryClient = useQueryClient();
@@ -90,6 +91,7 @@ export default function Tables() {
       queryClient.invalidateQueries({ queryKey: ['tables'] });
       setShowTransfer(false);
       setSelectedTransferItems({});
+      setSelectAllTransfer(false);
       Swal.fire({
         icon: 'success',
         title: 'تم النقل',
@@ -169,6 +171,30 @@ export default function Tables() {
     }
   });
 
+  const unassignTableBranchMutation = useMutation({
+    mutationFn: (tableId) => unassignTableBranch(tableId),
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: ['tables'] });
+      Swal.fire({
+        icon: 'success',
+        title: 'تم فك الربط',
+        text: 'الترابيزة بقت مستقلة عن الفرع',
+        confirmButtonText: 'حسناً',
+        confirmButtonColor: '#10b981'
+      });
+      setSelectedTableId(null);
+    },
+    onError: (error) => {
+      Swal.fire({
+        icon: 'error',
+        title: 'فشل',
+        text: error.response?.data?.message || 'حدث خطأ',
+        confirmButtonText: 'حسناً',
+        confirmButtonColor: '#ef4444'
+      });
+    }
+  });
+
   const getStatusColor = (status) => {
     switch (status) {
       case 'available': return 'bg-green-100 text-green-700 border-green-300';
@@ -193,6 +219,7 @@ export default function Tables() {
     setShowTransfer(false);
     setSelectedItems({});
     setSelectedTransferItems({});
+    setSelectAllTransfer(false);
     setShowProducts(false);
     setCart({});
   };
@@ -260,24 +287,16 @@ export default function Tables() {
   };
 
   const handleAddTable = async () => {
-    if (branches.length === 0) {
-      Swal.fire({
-        icon: 'error',
-        title: 'فشل',
-        text: 'لا يوجد فروع متاحة. يرجى إنشاء فرع أولاً.',
-        confirmButtonText: 'حسناً',
-        confirmButtonColor: '#ef4444'
-      });
-      return;
-    }
-
-    const defaultBranchId = branches[0].id;
+    const branchSelectOptions = ['<option value="">بدون فرع</option>']
+      .concat(branches.map((b) => `<option value="${b.id}">${b.name}</option>`))
+      .join('');
 
     const { value: formValues } = await Swal.fire({
       title: 'إضافة ترابيزة جديدة',
       html:
         '<input id="swal-input1" class="swal2-input" placeholder="رقم الترابيزة" type="number">' +
-        '<input id="swal-input2" class="swal2-input" placeholder="السعة" type="number">',
+        '<input id="swal-input2" class="swal2-input" placeholder="السعة" type="number">' +
+        `<select id="swal-input3" class="swal2-select">${branchSelectOptions}</select>`,
       focusConfirm: false,
       showCancelButton: true,
       confirmButtonText: 'إضافة',
@@ -287,18 +306,60 @@ export default function Tables() {
       preConfirm: () => {
         const number = document.getElementById('swal-input1').value;
         const capacity = document.getElementById('swal-input2').value;
+        const branchId = document.getElementById('swal-input3').value || undefined;
 
         if (!number || !capacity) {
           Swal.showValidationMessage('يرجى ملء جميع الحقول');
           return false;
         }
 
-        return { number: parseInt(number), capacity: parseInt(capacity), branchId: defaultBranchId };
+        return { number: parseInt(number), capacity: parseInt(capacity), branchId };
       }
     });
 
     if (formValues) {
       createTableMutation.mutate(formValues);
+    }
+  };
+
+  // Pays the entire table's order at once: every item's full remaining
+  // quantity is sent to splitBill in one call, which marks everything as
+  // paid and (since allPaid becomes true) automatically closes the order
+  // and frees the table.
+  const handleFullCheckout = async () => {
+    if (!selectedTable?.order) return;
+
+    const itemsToPay = (selectedTable.order.items || [])
+      .map((item) => ({ itemId: item.id, quantity: item.quantity - item.paidQuantity }))
+      .filter((item) => item.quantity > 0);
+
+    if (itemsToPay.length === 0) {
+      Swal.fire({
+        icon: 'info',
+        title: 'لا يوجد شيء لحسابه',
+        text: 'كل الأصناف في هذا الطلب محسوبة بالفعل',
+        confirmButtonText: 'حسناً',
+        confirmButtonColor: '#10b981'
+      });
+      return;
+    }
+
+    const confirm = await Swal.fire({
+      icon: 'question',
+      title: 'حساب الترابيزة بالكامل؟',
+      text: 'هيتم حساب كل الأصناف المتبقية وإغلاق الطلب وتفضية الترابيزة.',
+      showCancelButton: true,
+      confirmButtonText: 'نعم، احسب الكل',
+      cancelButtonText: 'إلغاء',
+      confirmButtonColor: '#10b981',
+      cancelButtonColor: '#6b7280'
+    });
+
+    if (confirm.isConfirmed) {
+      splitBillMutation.mutate({
+        orderId: selectedTable.order.id,
+        items: itemsToPay
+      });
     }
   };
 
@@ -405,16 +466,53 @@ export default function Tables() {
       if (itemId in prev) {
         const next = { ...prev };
         delete next[itemId];
+        setSelectAllTransfer(false);
         return next;
       }
-      return { ...prev, [itemId]: maxQuantity };
+      const next = { ...prev, [itemId]: maxQuantity };
+      // Check if all items are now selected
+      if (selectedTable?.order) {
+        const allItemsCount = selectedTable.order.items?.filter(item => {
+          const remaining = item.quantity - item.paidQuantity;
+          return remaining > 0;
+        }).length || 0;
+        if (Object.keys(next).length === allItemsCount) {
+          setSelectAllTransfer(true);
+        }
+      }
+      return next;
     });
   };
 
   // Clamp the chosen transfer quantity to [1, maxQuantity].
   const setTransferItemQuantity = (itemId, quantity, maxQuantity) => {
     const clamped = Math.max(1, Math.min(Number(quantity) || 1, maxQuantity));
+    if (clamped !== maxQuantity) {
+      setSelectAllTransfer(false);
+    }
     setSelectedTransferItems(prev => ({ ...prev, [itemId]: clamped }));
+  };
+
+  // Handle select all transfer items
+  const handleSelectAllTransfer = () => {
+    if (!selectedTable?.order) return;
+    
+    if (selectAllTransfer) {
+      // Deselect all
+      setSelectedTransferItems({});
+      setSelectAllTransfer(false);
+    } else {
+      // Select all items with their full remaining quantities
+      const allItems = {};
+      selectedTable.order.items?.forEach((item) => {
+        const remainingQuantity = item.quantity - item.paidQuantity;
+        if (remainingQuantity > 0) {
+          allItems[item.id] = remainingQuantity;
+        }
+      });
+      setSelectedTransferItems(allItems);
+      setSelectAllTransfer(true);
+    }
   };
 
   if (isLoading) {
@@ -453,7 +551,7 @@ export default function Tables() {
               </div>
               <p className="text-sm font-medium">{getStatusText(table.status)}</p>
               <p className="text-xs opacity-75">سعة: {table.capacity} أشخاص</p>
-              <p className="text-xs text-brand-600 font-medium">{table.branch?.name}</p>
+              <p className="text-xs text-brand-600 font-medium">{table.branch?.name || 'بدون فرع'}</p>
               {table.order && (
                 <div className="mt-2 pt-2 border-t border-current opacity-75">
                   <p className="text-xs font-semibold">
@@ -555,11 +653,39 @@ export default function Tables() {
           </button>
 
           <div className="bg-white rounded-xl shadow p-6">
-            <div className="flex items-center justify-between mb-4">
+            <div className="flex items-center justify-between mb-1">
               <h2 className="text-xl font-bold">ترابيزة #{selectedTable.number}</h2>
               <span className={`px-3 py-1 rounded-full text-sm font-medium ${getStatusColor(selectedTable.status)}`}>
                 {getStatusText(selectedTable.status)}
               </span>
+            </div>
+
+            <div className="flex items-center justify-between mb-4">
+              <p className="text-sm text-gray-500">{selectedTable.branch?.name || 'بدون فرع'}</p>
+              {selectedTable.branchId && (
+                <button
+                  onClick={async () => {
+                    const confirm = await Swal.fire({
+                      icon: 'warning',
+                      title: 'فك الربط بالفرع؟',
+                      text: 'الترابيزة هتبقى مستقلة تمامًا عن الفرع، ومش هتظهر في تقاريره تاني.',
+                      showCancelButton: true,
+                      confirmButtonText: 'نعم، افصل',
+                      cancelButtonText: 'إلغاء',
+                      confirmButtonColor: '#ef4444',
+                      cancelButtonColor: '#6b7280'
+                    });
+                    if (confirm.isConfirmed) {
+                      unassignTableBranchMutation.mutate(selectedTable.id);
+                    }
+                  }}
+                  disabled={unassignTableBranchMutation.isPending || !!selectedTable.order}
+                  className="text-xs text-red-500 hover:text-red-700 font-medium disabled:opacity-40 disabled:cursor-not-allowed"
+                  title={selectedTable.order ? 'قفل أو انقل الطلب النشط أولاً' : ''}
+                >
+                  فك الربط بالفرع
+                </button>
+              )}
             </div>
 
             {showSplitBill && (
@@ -578,6 +704,19 @@ export default function Tables() {
               <div className="space-y-4">
                 <div className="border rounded-lg p-4">
                   <h3 className="font-semibold mb-3">الأصناف المطلوبة</h3>
+                  {showTransfer && (
+                    <div className="flex items-center gap-2 mb-3">
+                      <label className="flex items-center gap-2 cursor-pointer">
+                        <input
+                          type="checkbox"
+                          checked={selectAllTransfer}
+                          onChange={handleSelectAllTransfer}
+                          className="w-4 h-4 rounded border-gray-300 text-brand-500 focus:ring-brand-500"
+                        />
+                        <span className="text-sm font-medium">حدد الكل</span>
+                      </label>
+                    </div>
+                  )}
                   <ul className="space-y-2">
                     {selectedTable.order.items?.map((item) => {
                       const remainingQuantity = item.quantity - item.paidQuantity;
@@ -669,6 +808,13 @@ export default function Tables() {
                   >
                     إضافة منتجات
                   </button>
+                  <button
+                    onClick={handleFullCheckout}
+                    disabled={splitBillMutation.isPending}
+                    className="w-full bg-emerald-600 hover:bg-emerald-700 text-white rounded-lg py-2 font-medium disabled:opacity-50"
+                  >
+                    حساب الترابيزة
+                  </button>
                   <div className="flex gap-3">
                     {!showSplitBill ? (
                       <button
@@ -688,7 +834,7 @@ export default function Tables() {
                         </button>
                         <button
                           onClick={() => { setShowSplitBill(false); setSelectedItems({}); }}
-                          className="px-4 bg-gray-300 hover:bg-gray-400 text-gray-700 rounded-lg py-2 font-medium"
+                          className="flex-1 bg-gray-300 hover:bg-gray-400 text-gray-700 rounded-lg py-2 font-medium"
                         >
                           إلغاء
                         </button>
@@ -711,8 +857,8 @@ export default function Tables() {
                           نقل المحدد
                         </button>
                         <button
-                          onClick={() => { setShowTransfer(false); setSelectedTransferItems({}); }}
-                          className="px-4 bg-gray-300 hover:bg-gray-400 text-gray-700 rounded-lg py-2 font-medium"
+                          onClick={() => { setShowTransfer(false); setSelectedTransferItems({}); setSelectAllTransfer(false); }}
+                          className="flex-1 bg-gray-300 hover:bg-gray-400 text-gray-700 rounded-lg py-2 font-medium"
                         >
                           إلغاء
                         </button>
