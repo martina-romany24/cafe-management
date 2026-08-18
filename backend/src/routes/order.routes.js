@@ -7,11 +7,11 @@ const controller = require('../controllers/order.controller');
 const router = express.Router();
 
 const orderCreateSchema = z.object({
-  branchId: z.string().uuid().optional(), // required only for admin; ignored for branch_manager
+  branchId: z.string().optional(), // required only for admin; ignored for branch_manager
   items: z
     .array(
       z.object({
-        productId: z.string().uuid(),
+        productId: z.string(),
         quantity: z.number().int().positive(),
       })
     )
@@ -22,12 +22,12 @@ const tableOrderCreateSchema = z.object({
   // Unused by the controller now (branchId is always derived from the table
   // itself), but the frontend still sends it — accept both undefined AND null
   // (a branchless table's branchId is null) so validation doesn't reject it.
-  branchId: z.string().uuid().nullish(),
+  branchId: z.string().nullish(),
   tableId: z.string().uuid(),
   items: z
     .array(
       z.object({
-        productId: z.string().uuid(),
+        productId: z.string(),
         quantity: z.number().int().positive(),
       })
     )
@@ -38,7 +38,7 @@ const addItemsSchema = z.object({
   items: z
     .array(
       z.object({
-        productId: z.string().uuid(),
+        productId: z.string(),
         quantity: z.number().int().positive(),
       })
     )
