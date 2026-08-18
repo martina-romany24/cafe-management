@@ -121,7 +121,6 @@ export default function AdminMonthlyReports() {
                 <tr>
                   <th className="p-3 text-right">الفرع</th>
                   <th className="p-3 text-right">إجمالي المبيعات</th>
-                  <th className="p-3 text-right">التكلفة الأساسية</th>
                   <th className="p-3 text-right">ربح الفرع</th>
                   <th className="p-3 text-right">نصيب الرئيسي</th>
                   <th className="p-3 text-right">عدد الطلبات</th>
@@ -132,7 +131,6 @@ export default function AdminMonthlyReports() {
                   <tr key={index} className="border-t">
                     <td className="p-3 font-medium">{r.branchName}</td>
                     <td className="p-3">{r.totalSales.toFixed(2)}</td>
-                    <td className="p-3">{r.baseCost.toFixed(2)}</td>
                     <td className="p-3 text-green-700">{r.branchProfit.toFixed(2)}</td>
                     <td className="p-3 text-brand-700">{r.hqRevenue.toFixed(2)}</td>
                     <td className="p-3">{r.ordersCount}</td>
