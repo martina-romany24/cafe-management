@@ -15,8 +15,9 @@ function createApp() {
   const app = express();
 
   app.use(cors({ 
-    origin: ['http://localhost:5173', 'http://localhost:5174', 'http://localhost:5175','https://cafe-management.martinaromany289.workers.dev'], 
-    credentials: true 
+   // origin: ['http://localhost:5173', 'http://localhost:5174', 'http://localhost:5175','https://cafe-management.martinaromany289.workers.dev'], 
+     origin: true, 
+   credentials: true 
   }));
   app.use(express.json());
 
