@@ -36,4 +36,16 @@ async function setActive(req, res, next) {
   }
 }
 
-module.exports = { list, create, update, setActive };
+// Self-service: any authenticated user (admin or branch_manager) registers
+// their own device's FCM token — always from req.user.id, never a URL param,
+// so nobody can overwrite someone else's token.
+async function setMyFcmToken(req, res, next) {
+  try {
+    const user = await userService.setFcmToken(req.user.id, req.body.fcmToken);
+    res.json(user);
+  } catch (err) {
+    next(err);
+  }
+}
+
+module.exports = { list, create, update, setActive, setMyFcmToken };

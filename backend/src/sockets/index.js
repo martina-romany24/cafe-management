@@ -30,6 +30,19 @@ function initSocket(httpServer) {
       socket.join(`branch:${socket.user.branchId}`);
     }
 
+    socket.on('register_fcm_token', async ({ fcmToken }) => {
+      try {
+        const prisma = require('../config/prisma');
+        await prisma.user.update({
+          where: { id: socket.user.id },
+          data: { fcmToken }
+        });
+        console.log(`FCM token registered for user ${socket.user.id}`);
+      } catch (err) {
+        console.error('Error registering FCM token:', err);
+      }
+    });
+
     socket.on('disconnect', () => {});
   });
 

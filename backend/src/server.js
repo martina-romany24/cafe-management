@@ -20,5 +20,7 @@ app.set('io', io);
 
 httpServer.listen(PORT, () => {
   console.log(`Cafe management backend running on port ${PORT}`);
-  startMonthlyReportCron();
+  // io يُمرَّر هنا عشان الـ cron يقدر يبعت إشعار "التقرير جاهز" للأدمنز لحظة
+  // ما يخلص التوليد، مش بس يسجّله في قاعدة البيانات.
+  startMonthlyReportCron(io);
 });

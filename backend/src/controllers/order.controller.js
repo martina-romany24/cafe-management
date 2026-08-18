@@ -1,5 +1,40 @@
 const orderService = require('../services/order.service');
 const prisma = require('../config/prisma');
+const { notify } = require('../utils/notify');
+
+/**
+ * Notifies every active admin that a sale just completed at a branch.
+ * Skipped for branchless (admin-only table) orders — there's no branch to
+ * report a sale for.
+ */
+async function notifyNewOrder(io, order) {
+  if (!order.branchId) return;
+
+  // Fetch order with branch data
+  const orderWithBranch = await prisma.order.findUnique({
+    where: { id: order.id },
+    include: { branch: true }
+  });
+
+  if (!orderWithBranch.branch) return;
+
+  const admins = await prisma.user.findMany({
+    where: { role: 'admin', isActive: true },
+    select: { id: true },
+  });
+  if (admins.length === 0) return;
+
+  const branchName = orderWithBranch.branch.name;
+  const total = Number(orderWithBranch.totalAmount).toFixed(2);
+
+  await notify(io, {
+    userIds: admins.map((a) => a.id),
+    type: 'new_order',
+    message: `طلب جديد من ${branchName} بإجمالي ${total} ج.م`,
+    relatedOrderId: order.id,
+    room: 'hq',
+  });
+}
 
 async function create(req, res, next) {
   try {
@@ -8,6 +43,7 @@ async function create(req, res, next) {
     const branchId = req.user.role === 'admin' ? req.body.branchId : req.user.branchId;
     const order = await orderService.createOrder(branchId, req.user.id, req.body.items);
     req.io.to(`branch:${branchId}`).emit('order_created', { orderId: order.id });
+    await notifyNewOrder(req.io, order);
     res.status(201).json(order);
   } catch (err) {
     next(err);
@@ -83,6 +119,7 @@ async function createTableOrder(req, res, next) {
     const order = await orderService.createTableOrder(req.user.id, tableId, items);
     const room = order.branchId ? `branch:${order.branchId}` : 'hq';
     req.io.to(room).emit('order_created', { orderId: order.id, tableId });
+    await notifyNewOrder(req.io, order);
     res.status(201).json(order);
   } catch (err) {
     next(err);

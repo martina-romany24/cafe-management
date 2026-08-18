@@ -72,7 +72,7 @@ export default function BranchPOS() {
   }
 
   return (
-    <Layout links={branchLinks} title="نقطة البيع">
+    <Layout links={branchLinks} title="نقطة البيع" showNotifications={false}>
       <h1 className="text-2xl font-bold mb-6">نقطة البيع</h1>
 
       <div className="grid lg:grid-cols-3 gap-6">

@@ -30,6 +30,9 @@ export const createUser = (data) => apiClient.post('/users', data).then((r) => r
 export const updateUser = (id, data) => apiClient.put(`/users/${id}`, data).then((r) => r.data);
 export const setUserActive = (id, isActive) =>
   apiClient.patch(`/users/${id}/active`, { isActive }).then((r) => r.data);
+// Saves the current user's FCM push-notification token (self-service, no id needed).
+export const updateMyFcmToken = (fcmToken) =>
+  apiClient.patch('/users/me/fcm-token', { fcmToken }).then((r) => r.data);
 
 // --- Orders ---
 export const createOrder = (data) => apiClient.post('/orders', data).then((r) => r.data);
@@ -61,3 +64,10 @@ export const exportReportExcelUrl = (params) =>
   `${apiClient.defaults.baseURL}/reports/export/excel?month=${params.month}&year=${params.year}`;
 export const exportReportPdfUrl = (params) =>
   `${apiClient.defaults.baseURL}/reports/export/pdf?month=${params.month}&year=${params.year}`;
+
+// --- Notifications ---
+export const getNotifications = (params) => apiClient.get('/notifications', { params }).then((r) => r.data);
+export const getUnreadNotificationCount = () =>
+  apiClient.get('/notifications/unread-count').then((r) => r.data);
+export const markNotificationRead = (id) => apiClient.patch(`/notifications/${id}/read`).then((r) => r.data);
+export const markAllNotificationsRead = () => apiClient.patch('/notifications/read-all').then((r) => r.data);

@@ -38,4 +38,17 @@ async function setActive(id, isActive) {
   return prisma.user.update({ where: { id }, data: { isActive }, select: safeSelect });
 }
 
-module.exports = { list, create, update, setActive };
+/**
+ * Saves the current user's FCM registration token so the backend can send
+ * them push notifications (via firebase.service.js). Called by the logged-in
+ * user themselves — not admin-only, unlike the rest of this service.
+ */
+async function setFcmToken(userId, fcmToken) {
+  return prisma.user.update({
+    where: { id: userId },
+    data: { fcmToken },
+    select: safeSelect,
+  });
+}
+
+module.exports = { list, create, update, setActive, setFcmToken };

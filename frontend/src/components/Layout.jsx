@@ -2,8 +2,9 @@ import { NavLink, useNavigate } from 'react-router-dom';
 import { LogOut, Coffee, Menu, X } from 'lucide-react';
 import { useAuthStore } from '../store/authStore';
 import { useState } from 'react';
+import NotificationBell from './NotificationBell';
 
-export default function Layout({ links, title, children }) {
+export default function Layout({ links, title, children, showNotifications = true }) {
   const { user, logout } = useAuthStore();
   const navigate = useNavigate();
   const [isMobileMenuOpen, setIsMobileMenuOpen] = useState(false);
@@ -27,7 +28,7 @@ export default function Layout({ links, title, children }) {
           <Coffee size={24} />
           <span className="font-bold">{title}</span>
         </div>
-        <div className="w-6"></div>
+        {showNotifications && <NotificationBell />}
       </div>
 
       {/* Mobile Menu */}
@@ -94,7 +95,16 @@ export default function Layout({ links, title, children }) {
           </button>
         </div>
       </aside>
-      <main className="flex-1 p-4 md:p-8 overflow-x-auto">{children}</main>
+
+      <div className="flex-1 flex flex-col overflow-x-auto">
+        {/* Desktop-only top utility bar: sidebar has no room for the bell,
+            so it lives here instead. Hidden on mobile since the bell is
+            already in the mobile header above. */}
+        <div className="hidden md:flex items-center justify-end px-8 pt-4">
+          {showNotifications && <NotificationBell />}
+        </div>
+        <main className="flex-1 p-4 md:px-8 md:pb-8 md:pt-2">{children}</main>
+      </div>
     </div>
   );
 }

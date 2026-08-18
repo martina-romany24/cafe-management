@@ -23,7 +23,15 @@ const userUpdateSchema = z.object({
 
 const activeSchema = z.object({ isActive: z.boolean() });
 
-// All user management is admin-only, enforced server-side regardless of frontend.
+const fcmTokenSchema = z.object({
+  fcmToken: z.string().min(1),
+});
+
+// Self-service — must come BEFORE the admin-only blanket restriction below,
+// since a branch_manager needs to register their own device's push token too.
+router.patch('/me/fcm-token', authenticate, validate(fcmTokenSchema), controller.setMyFcmToken);
+
+// Everything below is admin-only, enforced server-side regardless of frontend.
 router.use(authenticate, requireRole('admin'));
 
 router.get('/', controller.list);

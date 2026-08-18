@@ -1,4 +1,4 @@
-import { useState } from 'react';
+import { useState, useMemo } from 'react';
 import { useQuery } from '@tanstack/react-query';
 import Layout from '../../components/Layout';
 import { branchLinks } from './links';
@@ -21,7 +21,7 @@ export default function BranchReports() {
   });
 
   return (
-    <Layout links={branchLinks} title="تقاريري">
+    <Layout links={branchLinks} title="تقاريري" showNotifications={false}>
       <h1 className="text-2xl font-bold mb-6">تقارير المبيعات</h1>
 
       <div className="flex gap-2 mb-6">

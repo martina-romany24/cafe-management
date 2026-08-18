@@ -106,7 +106,15 @@ async function update(id, data) {
     const marginChanged = Object.prototype.hasOwnProperty.call(data, 'defaultMargin')
       || Object.prototype.hasOwnProperty.call(data, 'marginType');
 
+    let affectedBranchIds = [];
+
     if (marginChanged) {
+      const pricings = await tx.branchProductPricing.findMany({
+        where: { productId: id },
+        select: { branchId: true },
+      });
+      affectedBranchIds = pricings.map((p) => p.branchId);
+
       await tx.branchProductPricing.updateMany({
         where: { productId: id },
         data: {
@@ -116,7 +124,10 @@ async function update(id, data) {
       });
     }
 
-    return product;
+    // affectedBranchIds is extra metadata for the controller (to know who to
+    // notify) — not a real product field, so the controller strips it before
+    // sending the response back to the client.
+    return { ...product, affectedBranchIds };
   });
 }
 

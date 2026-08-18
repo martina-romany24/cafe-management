@@ -8,12 +8,16 @@ const userRoutes = require('./routes/user.routes');
 const orderRoutes = require('./routes/order.routes');
 const reportRoutes = require('./routes/report.routes');
 const tableRoutes = require('./routes/table.routes');
+const notificationRoutes = require('./routes/notification.routes');
 const { notFoundHandler, errorHandler } = require('./middleware/errorHandler');
 
 function createApp() {
   const app = express();
 
-  app.use(cors({ origin: process.env.CLIENT_URL || '*', credentials: true }));
+  app.use(cors({ 
+    origin: ['http://localhost:5173', 'http://localhost:5174', 'http://localhost:5175'], 
+    credentials: true 
+  }));
   app.use(express.json());
 
   // Attach io to every request so controllers can emit events
@@ -31,6 +35,7 @@ function createApp() {
   app.use('/api/orders', orderRoutes);
   app.use('/api/reports', reportRoutes);
   app.use('/api/tables', tableRoutes);
+  app.use('/api/notifications', notificationRoutes);
 
   app.use(notFoundHandler);
   app.use(errorHandler);

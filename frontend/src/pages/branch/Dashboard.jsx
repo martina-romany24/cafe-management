@@ -10,7 +10,7 @@ export default function BranchDashboard() {
   const { data: topProducts = [] } = useQuery({ queryKey: ['top-products'], queryFn: () => getTopProducts({}) });
 
   return (
-    <Layout links={branchLinks} title={user?.branch?.name || 'الفرع'}>
+    <Layout links={branchLinks} title={user?.branch?.name || 'الفرع'} showNotifications={false}>
       <h1 className="text-2xl font-bold mb-6">نظرة عامة على فرعي</h1>
 
       <div className="grid grid-cols-1 sm:grid-cols-2 gap-4 mb-8">

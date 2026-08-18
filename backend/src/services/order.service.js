@@ -298,7 +298,7 @@ async function createTableOrder(userId, tableId, items) {
         status: 'open',
         items: { create: orderItemsData },
       },
-      include: { items: { include: { product: true } } },
+      include: { items: { include: { product: true } }, branch: { select: { id: true, name: true } } },
     });
 
     // Update table status to occupied
