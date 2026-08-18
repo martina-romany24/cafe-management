@@ -80,7 +80,7 @@ export default function BranchPOS() {
           {isLoading ? (
             <p className="text-gray-400">جارِ التحميل...</p>
           ) : (
-            <div className="grid sm:grid-cols-2 md:grid-cols-3 gap-3">
+            <div className="grid grid-cols-3 gap-3">
               {products.map((p) => (
                 <button
                   key={p.id}

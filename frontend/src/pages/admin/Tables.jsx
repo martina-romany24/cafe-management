@@ -574,7 +574,7 @@ export default function Tables() {
 
           <div className="grid lg:grid-cols-3 gap-6">
             <div className="lg:col-span-2">
-              <div className="grid sm:grid-cols-2 md:grid-cols-3 gap-3">
+              <div className="grid grid-cols-3 gap-3">
                 {products.map((p) => (
                   <button
                     key={p.id}
