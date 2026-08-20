@@ -7,7 +7,7 @@ const firebaseConfig = {
   projectId: "cafe-management-250fa",
   storageBucket: "cafe-management-250fa.appspot.com",
   messagingSenderId: "1004958043689",
-  appId: "1:1004958043689:web:5d1e2e4e0e0e0e0e0e0e0e"
+  appId: "1:809261255574:web:d9268852757280b58dabb7"
 };
 
 firebase.initializeApp(firebaseConfig);
