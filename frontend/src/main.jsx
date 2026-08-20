@@ -9,12 +9,22 @@ import { messaging } from './config/firebaseConfig';
 
 // Register Firebase Messaging Service Worker
 if ('serviceWorker' in navigator) {
-  navigator.serviceWorker.register('/firebase-messaging-sw.js')
+  // Register main PWA service worker
+  navigator.serviceWorker.register('/sw.js')
     .then((registration) => {
-      console.log('Service Worker registered with scope:', registration.scope);
+      console.log('PWA Service Worker registered with scope:', registration.scope);
     })
     .catch((error) => {
-      console.error('Service Worker registration failed:', error);
+      console.error('PWA Service Worker registration failed:', error);
+    });
+
+  // Register Firebase Messaging service worker
+  navigator.serviceWorker.register('/firebase-messaging-sw.js')
+    .then((registration) => {
+      console.log('Firebase Messaging Service Worker registered with scope:', registration.scope);
+    })
+    .catch((error) => {
+      console.error('Firebase Messaging Service Worker registration failed:', error);
     });
 }
 

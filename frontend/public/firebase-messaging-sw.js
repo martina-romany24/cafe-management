@@ -22,8 +22,21 @@ messaging.onBackgroundMessage((payload) => {
     body: payload.notification.body,
     icon: '/icon-192.png',
     badge: '/badge-72.png',
-    data: payload.data
+    data: payload.data,
+    vibrate: [200, 100, 200],
+    tag: 'cafe-notification',
+    renotify: true,
+    requireInteraction: false,
+    silent: false
   };
 
   self.registration.showNotification(notificationTitle, notificationOptions);
+  
+  // Handle notification click
+  self.addEventListener('notificationclick', (event) => {
+    event.notification.close();
+    event.waitUntil(
+      clients.openWindow('/')
+    );
+  });
 });

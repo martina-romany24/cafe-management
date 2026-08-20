@@ -72,7 +72,9 @@ async function sendToUser(fcmToken, notification, data = {}) {
       notification: {
         sound: 'default',
         icon: 'ic_notification',
-        color: '#4CAF50',
+        color: '#4f46e5',
+        priority: 'high',
+        visibility: 'public',
       },
     },
     apns: {
@@ -81,6 +83,12 @@ async function sendToUser(fcmToken, notification, data = {}) {
           sound: 'default',
           badge: 1,
         },
+      },
+    },
+    webpush: {
+      notification: {
+        icon: '/icon-192.png',
+        badge: '/badge-72.png',
       },
     },
   };
