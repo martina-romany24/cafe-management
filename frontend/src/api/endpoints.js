@@ -45,6 +45,7 @@ export const addItemsToOrder = (orderId, data) => apiClient.post(`/orders/${orde
 export const splitBill = (orderId, data) => apiClient.post(`/orders/${orderId}/split-bill`, data).then((r) => r.data);
 export const transferOrder = (orderId, data) => apiClient.post(`/orders/${orderId}/transfer`, data).then((r) => r.data);
 export const getOrderByTable = (tableId) => apiClient.get(`/orders/table/${tableId}`).then((r) => r.data);
+export const deleteOrder = (orderId) => apiClient.delete(`/orders/${orderId}`).then((r) => r.data);
 
 // --- Tables ---
 export const getTables = (params) => apiClient.get('/tables', { params }).then((r) => r.data);

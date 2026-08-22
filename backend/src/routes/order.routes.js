@@ -87,5 +87,6 @@ router.get('/table/:tableId', authenticate, requireRole('admin', 'branch_manager
 router.post('/:id/items', authenticate, requireRole('admin', 'branch_manager'), validate(addItemsSchema), controller.addItemsToOrder);
 router.post('/:id/split-bill', authenticate, requireRole('admin', 'branch_manager'), validate(splitBillSchema), controller.splitBill);
 router.post('/:id/transfer', authenticate, requireRole('admin', 'branch_manager'), validate(transferOrderSchema), controller.transferOrder);
+router.delete('/:id', authenticate, requireRole('admin'), controller.deleteOrder);
 
 module.exports = router;

@@ -783,6 +783,46 @@ async function getOrderByTable(tableId) {
   });
 }
 
+/**
+ * Delete an order and its associated items.
+ * If the order is linked to a table, frees the table.
+ * This will remove the order from all reports.
+ */
+async function deleteOrder(orderId) {
+  return prisma.$transaction(async (tx) => {
+    const order = await tx.order.findUnique({
+      where: { id: orderId },
+      include: { items: true },
+    });
+
+    if (!order) {
+      const err = new Error('Order not found');
+      err.status = 404;
+      throw err;
+    }
+
+    // Delete all order items (cascade delete would handle this, but being explicit)
+    await tx.orderItem.deleteMany({
+      where: { orderId },
+    });
+
+    // If order is linked to a table, free the table
+    if (order.tableId) {
+      await tx.table.update({
+        where: { id: order.tableId },
+        data: { status: 'available' },
+      });
+    }
+
+    // Delete the order
+    await tx.order.delete({
+      where: { id: orderId },
+    });
+
+    return { success: true };
+  });
+}
+
 module.exports = {
   createOrder,
   branchSalesSummary,
@@ -794,4 +834,5 @@ module.exports = {
   splitBill,
   transferOrder,
   getOrderByTable,
+  deleteOrder,
 };

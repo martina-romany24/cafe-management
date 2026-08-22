@@ -177,4 +177,13 @@ async function getOrderByTable(req, res, next) {
   }
 }
 
-module.exports = { create, branchSummary, adminReport, topProducts, getAllOrders, createTableOrder, addItemsToOrder, splitBill, transferOrder, getOrderByTable };
+async function deleteOrder(req, res, next) {
+  try {
+    const result = await orderService.deleteOrder(req.params.id);
+    res.json(result);
+  } catch (err) {
+    next(err);
+  }
+}
+
+module.exports = { create, branchSummary, adminReport, topProducts, getAllOrders, createTableOrder, addItemsToOrder, splitBill, transferOrder, getOrderByTable, deleteOrder };
