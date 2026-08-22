@@ -1,4 +1,4 @@
-import { useState } from 'react';
+import { useState, useMemo } from 'react';
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
 import { Users, Clock, ArrowRight, Check, X, Plus, Minus, Trash2, ShoppingCart, Plus as AddIcon } from 'lucide-react';
 import Swal from 'sweetalert2';
@@ -19,6 +19,7 @@ export default function Tables() {
   const [selectAllTransfer, setSelectAllTransfer] = useState(false);
   const [cart, setCart] = useState({});
   const [showProducts, setShowProducts] = useState(false);
+  const [selectedCategory, setSelectedCategory] = useState(null);
   const queryClient = useQueryClient();
 
   const tableOrderMutation = useMutation({
@@ -27,6 +28,7 @@ export default function Tables() {
       queryClient.invalidateQueries({ queryKey: ['tables'] });
       setCart({});
       setShowProducts(false);
+      setSelectedCategory(null);
       Swal.fire({
         icon: 'success',
         title: 'تم إنشاء الطلب',
@@ -118,6 +120,7 @@ export default function Tables() {
       queryClient.invalidateQueries({ queryKey: ['tables'] });
       setCart({});
       setShowProducts(false);
+      setSelectedCategory(null);
       Swal.fire({
         icon: 'success',
         title: 'تمت الإضافة',
@@ -222,11 +225,13 @@ export default function Tables() {
     setSelectAllTransfer(false);
     setShowProducts(false);
     setCart({});
+    setSelectedCategory(null);
   };
 
   const handleStartOrder = () => {
     if (!selectedTable) return;
     setShowProducts(true);
+    setSelectedCategory(null);
   };
 
   const handleAddToCart = (productId) => {
@@ -515,6 +520,15 @@ export default function Tables() {
     }
   };
 
+  const categories = useMemo(() => {
+    const uniqueCategories = [...new Set(products.map(p => p.category))];
+    return uniqueCategories;
+  }, [products]);
+
+  const filteredProducts = selectedCategory 
+    ? products.filter(p => p.category === selectedCategory)
+    : [];
+
   if (isLoading) {
     return (
       <Layout links={adminLinks} title="الترابيزات">
@@ -574,19 +588,41 @@ export default function Tables() {
 
           <div className="grid lg:grid-cols-3 gap-6">
             <div className="lg:col-span-2">
-              <div className="grid grid-cols-3 gap-3">
-                {products.map((p) => (
+              {selectedCategory ? (
+                <div>
                   <button
-                    key={p.id}
-                    onClick={() => handleAddToCart(p.id)}
-                    className="bg-white rounded-xl shadow p-4 text-right hover:shadow-md hover:-translate-y-0.5 transition-all"
+                    onClick={() => setSelectedCategory(null)}
+                    className="mb-4 text-brand-600 hover:text-brand-700 font-medium flex items-center gap-2"
                   >
-                    <p className="font-semibold">{p.name}</p>
-                    <p className="text-xs text-gray-400 mb-2">{p.category}</p>
-                    <p className="text-brand-600 font-bold">{(Number(p.basePrice) || 0).toFixed(2)} ج.م</p>
+                    ← العودة للأقسام
                   </button>
-                ))}
-              </div>
+                  <div className="grid grid-cols-3 gap-3">
+                    {filteredProducts.map((p) => (
+                      <button
+                        key={p.id}
+                        onClick={() => handleAddToCart(p.id)}
+                        className="bg-white rounded-xl shadow p-4 text-right hover:shadow-md hover:-translate-y-0.5 transition-all"
+                      >
+                        <p className="font-semibold">{p.name}</p>
+                        <p className="text-xs text-gray-400 mb-2">{p.category}</p>
+                        <p className="text-brand-600 font-bold">{(Number(p.basePrice) || 0).toFixed(2)} ج.م</p>
+                      </button>
+                    ))}
+                  </div>
+                </div>
+              ) : (
+                <div className="grid grid-cols-2 md:grid-cols-3 gap-4">
+                  {categories.map((category) => (
+                    <button
+                      key={category}
+                      onClick={() => setSelectedCategory(category)}
+                      className="bg-white rounded-xl shadow p-6 text-right hover:shadow-md hover:-translate-y-0.5 transition-all"
+                    >
+                      <p className="font-semibold text-lg">{category}</p>
+                    </button>
+                  ))}
+                </div>
+              )}
             </div>
 
             <div className="bg-white rounded-xl shadow p-4 h-fit sticky top-4">

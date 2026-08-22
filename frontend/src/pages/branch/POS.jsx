@@ -9,6 +9,7 @@ import { getProducts, createOrder } from '../../api/endpoints';
 export default function BranchPOS() {
   const { data: products = [], isLoading } = useQuery({ queryKey: ['products'], queryFn: getProducts });
   const [cart, setCart] = useState({}); // { productId: quantity }
+  const [selectedCategory, setSelectedCategory] = useState(null);
   const queryClient = useQueryClient();
 
   const orderMutation = useMutation({
@@ -66,6 +67,15 @@ export default function BranchPOS() {
 
   const total = cartItems.reduce((sum, item) => sum + (item.product?.price || 0) * item.quantity, 0);
 
+  const categories = useMemo(() => {
+    const uniqueCategories = [...new Set(products.map(p => p.category))];
+    return uniqueCategories;
+  }, [products]);
+
+  const filteredProducts = selectedCategory 
+    ? products.filter(p => p.category === selectedCategory)
+    : [];
+
   function handleCheckout() {
     if (cartItems.length === 0) return;
     orderMutation.mutate(cartItems.map((i) => ({ productId: i.productId, quantity: i.quantity })));
@@ -79,17 +89,37 @@ export default function BranchPOS() {
         <div className="lg:col-span-2">
           {isLoading ? (
             <p className="text-gray-400">جارِ التحميل...</p>
+          ) : selectedCategory ? (
+            <div>
+              <button
+                onClick={() => setSelectedCategory(null)}
+                className="mb-4 text-brand-600 hover:text-brand-700 font-medium flex items-center gap-2"
+              >
+                ← العودة للأقسام
+              </button>
+              <div className="grid grid-cols-3 gap-3">
+                {filteredProducts.map((p) => (
+                  <button
+                    key={p.id}
+                    onClick={() => addToCart(p.id)}
+                    className="bg-white rounded-xl shadow p-4 text-right hover:shadow-md hover:-translate-y-0.5 transition-all"
+                  >
+                    <p className="font-semibold">{p.name}</p>
+                    <p className="text-xs text-gray-400 mb-2">{p.category}</p>
+                    <p className="text-brand-600 font-bold">{(p.price || 0).toFixed(2)} ج.م</p>
+                  </button>
+                ))}
+              </div>
+            </div>
           ) : (
-            <div className="grid grid-cols-3 gap-3">
-              {products.map((p) => (
+            <div className="grid grid-cols-2 md:grid-cols-3 gap-4">
+              {categories.map((category) => (
                 <button
-                  key={p.id}
-                  onClick={() => addToCart(p.id)}
-                  className="bg-white rounded-xl shadow p-4 text-right hover:shadow-md hover:-translate-y-0.5 transition-all"
+                  key={category}
+                  onClick={() => setSelectedCategory(category)}
+                  className="bg-white rounded-xl shadow p-6 text-right hover:shadow-md hover:-translate-y-0.5 transition-all"
                 >
-                  <p className="font-semibold">{p.name}</p>
-                  <p className="text-xs text-gray-400 mb-2">{p.category}</p>
-                  <p className="text-brand-600 font-bold">{(p.price || 0).toFixed(2)} ج.م</p>
+                  <p className="font-semibold text-lg">{category}</p>
                 </button>
               ))}
             </div>
