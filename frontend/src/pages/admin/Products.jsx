@@ -1,4 +1,4 @@
-import { useState } from 'react';
+import { useState, useMemo } from 'react';
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
 import { Plus, Pencil, Trash2, Settings2 } from 'lucide-react';
 import Layout from '../../components/Layout';
@@ -22,8 +22,18 @@ export default function AdminProducts() {
   const [formOpen, setFormOpen] = useState(false);
   const [editingProduct, setEditingProduct] = useState(null);
   const [pricingProduct, setPricingProduct] = useState(null);
+  const [selectedCategory, setSelectedCategory] = useState(null);
 
   const invalidate = () => queryClient.invalidateQueries({ queryKey: ['products'] });
+
+  const categories = useMemo(() => {
+    const uniqueCategories = [...new Set(products.map(p => p.category))];
+    return uniqueCategories;
+  }, [products]);
+
+  const filteredProducts = selectedCategory 
+    ? products.filter(p => p.category === selectedCategory)
+    : products;
 
   const createMutation = useMutation({ mutationFn: createProduct, onSuccess: invalidate });
   const updateMutation = useMutation({
@@ -69,51 +79,74 @@ export default function AdminProducts() {
 
       {isLoading ? (
         <p className="text-gray-400">جارِ التحميل...</p>
-      ) : (
-        <div className="bg-white rounded-xl shadow overflow-hidden">
-          <table className="w-full text-sm">
-            <thead className="bg-brand-50 text-brand-800">
-              <tr>
-                <th className="p-3 text-right">الاسم</th>
-                <th className="p-3 text-right">التصنيف</th>
-                <th className="p-3 text-right">السعر الأساسي</th>
-                <th className="p-3 text-right">نسبة المكسب الافتراضية</th>
-                <th className="p-3 text-right">إجراءات</th>
-              </tr>
-            </thead>
-            <tbody>
-              {products.map((p) => (
-                <tr key={p.id} className="border-t">
-                  <td className="p-3 font-medium">{p.name}</td>
-                  <td className="p-3 text-gray-500">{p.category || '-'}</td>
-                  <td className="p-3">{Number(p.basePrice).toFixed(2)}</td>
-                  <td className="p-3">
-                    {p.marginType === 'percentage' 
-                      ? `${(p.defaultMargin * 100).toFixed(1)}%` 
-                      : `${p.defaultMargin} ج.م`}
-                  </td>
-                  <td className="p-3">
-                    <div className="flex gap-2">
-                      <button
-                        onClick={() => openEdit(p)}
-                        title="تعديل"
-                        className="p-1.5 rounded hover:bg-brand-50 text-brand-600"
-                      >
-                        <Pencil size={16} />
-                      </button>
-                      <button
-                        onClick={() => deleteMutation.mutate(p.id)}
-                        title="حذف (تعطيل)"
-                        className="p-1.5 rounded hover:bg-red-50 text-red-500"
-                      >
-                        <Trash2 size={16} />
-                      </button>
-                    </div>
-                  </td>
+      ) : selectedCategory ? (
+        <div>
+          <button
+            onClick={() => setSelectedCategory(null)}
+            className="mb-4 text-brand-600 hover:text-brand-700 font-medium flex items-center gap-2"
+          >
+            ← العودة للأقسام
+          </button>
+          <div className="bg-white rounded-xl shadow overflow-hidden">
+            <table className="w-full text-sm">
+              <thead className="bg-brand-50 text-brand-800">
+                <tr>
+                  <th className="p-3 text-right">الاسم</th>
+                  <th className="p-3 text-right">التصنيف</th>
+                  <th className="p-3 text-right">السعر الأساسي</th>
+                  <th className="p-3 text-right">نسبة المكسب الافتراضية</th>
+                  <th className="p-3 text-right">إجراءات</th>
                 </tr>
-              ))}
-            </tbody>
-          </table>
+              </thead>
+              <tbody>
+                {filteredProducts.map((p) => (
+                  <tr key={p.id} className="border-t">
+                    <td className="p-3 font-medium">{p.name}</td>
+                    <td className="p-3 text-gray-500">{p.category || '-'}</td>
+                    <td className="p-3">{Number(p.basePrice).toFixed(2)}</td>
+                    <td className="p-3">
+                      {p.marginType === 'percentage' 
+                        ? `${(p.defaultMargin * 100).toFixed(1)}%` 
+                        : `${p.defaultMargin} ج.م`}
+                    </td>
+                    <td className="p-3">
+                      <div className="flex gap-2">
+                        <button
+                          onClick={() => openEdit(p)}
+                          title="تعديل"
+                          className="p-1.5 rounded hover:bg-brand-50 text-brand-600"
+                        >
+                          <Pencil size={16} />
+                        </button>
+                        <button
+                          onClick={() => deleteMutation.mutate(p.id)}
+                          title="حذف (تعطيل)"
+                          className="p-1.5 rounded hover:bg-red-50 text-red-500"
+                        >
+                          <Trash2 size={16} />
+                        </button>
+                      </div>
+                    </td>
+                  </tr>
+                ))}
+              </tbody>
+            </table>
+          </div>
+        </div>
+      ) : (
+        <div className="grid grid-cols-2 md:grid-cols-3 lg:grid-cols-4 gap-4">
+          {categories.map((category) => (
+            <button
+              key={category}
+              onClick={() => setSelectedCategory(category)}
+              className="bg-white rounded-xl shadow p-6 text-right hover:shadow-md hover:-translate-y-0.5 transition-all"
+            >
+              <p className="font-semibold text-lg">{category}</p>
+              <p className="text-xs text-gray-400 mt-1">
+                {products.filter(p => p.category === category).length} منتج
+              </p>
+            </button>
+          ))}
         </div>
       )}
 

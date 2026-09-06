@@ -2,6 +2,7 @@ const express = require('express');
 const { z } = require('zod');
 const validate = require('../middleware/validate');
 const { authenticate, requireRole } = require('../middleware/auth');
+const { authenticatePrinter } = require('../middleware/printerAuth');
 const controller = require('../controllers/order.controller');
 
 const router = express.Router();
@@ -87,6 +88,8 @@ router.get('/table/:tableId', authenticate, requireRole('admin', 'branch_manager
 router.post('/:id/items', authenticate, requireRole('admin', 'branch_manager'), validate(addItemsSchema), controller.addItemsToOrder);
 router.post('/:id/split-bill', authenticate, requireRole('admin', 'branch_manager'), validate(splitBillSchema), controller.splitBill);
 router.post('/:id/transfer', authenticate, requireRole('admin', 'branch_manager'), validate(transferOrderSchema), controller.transferOrder);
+router.get('/:id', authenticate, requireRole('admin', 'branch_manager'), controller.getOrderById);
+router.get('/:id/printer', authenticatePrinter, controller.getOrderById);
 router.delete('/:id', authenticate, requireRole('admin'), controller.deleteOrder);
 
 module.exports = router;

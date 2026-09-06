@@ -186,4 +186,27 @@ async function deleteOrder(req, res, next) {
   }
 }
 
-module.exports = { create, branchSummary, adminReport, topProducts, getAllOrders, createTableOrder, addItemsToOrder, splitBill, transferOrder, getOrderByTable, deleteOrder };
+async function getOrderById(req, res, next) {
+  try {
+    const order = await prisma.order.findUnique({
+      where: { id: req.params.id },
+      include: {
+        items: {
+          include: {
+            product: true
+          }
+        },
+        branch: true,
+        user: true
+      }
+    });
+    if (!order) {
+      return res.status(404).json({ message: 'Order not found' });
+    }
+    res.json(order);
+  } catch (err) {
+    next(err);
+  }
+}
+
+module.exports = { create, branchSummary, adminReport, topProducts, getAllOrders, createTableOrder, addItemsToOrder, splitBill, transferOrder, getOrderByTable, deleteOrder, getOrderById };

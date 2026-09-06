@@ -1,0 +1,30 @@
+<service>
+	<id>adminprinterservice.exe</id>
+	<name>AdminPrinterService</name>
+	<description>خدمة طباعة الفواتير التلقائية لنظام إدارة الكافيه</description>
+	<executable>C:\Program Files\nodejs\node.exe</executable>
+	<argument>C:\Users\DELL\Downloads\cafe-management-system\cafe-management\admin-printer\node_modules\node-windows\lib\wrapper.js</argument>
+	<argument>--file</argument>
+	<argument>C:\Users\DELL\Downloads\cafe-management-system\cafe-management\admin-printer\printer.js</argument>
+	<argument>--scriptoptions=</argument>
+	<argument>--log</argument>
+	<argument>AdminPrinterService wrapper</argument>
+	<argument>--grow</argument>
+	<argument>0.25</argument>
+	<argument>--wait</argument>
+	<argument>2</argument>
+	<argument>--maxrestarts</argument>
+	<argument>10</argument>
+	<argument>--abortonerror</argument>
+	<argument>n</argument>
+	<argument>--stopparentfirst</argument>
+	<argument>undefined</argument>
+	<logmode>rotate</logmode>
+	<stoptimeout>30sec</stoptimeout>
+	<serviceaccount>
+		<domain>TANTON</domain>
+		<user>LocalSystem</user>
+		<password></password>
+	</serviceaccount>
+	<workingdirectory>C:\Users\DELL\Downloads\cafe-management-system\cafe-management\admin-printer</workingdirectory>
+</service>
