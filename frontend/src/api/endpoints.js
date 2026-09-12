@@ -13,7 +13,7 @@ export const setBranchActive = (id, isActive) =>
   apiClient.patch(`/branches/${id}/active`, { isActive }).then((r) => r.data);
 
 // --- Products ---
-export const getProducts = () => apiClient.get('/products').then((r) => r.data);
+export const getProducts = () => apiClient.get('/products', { params: { _t: Date.now() } }).then((r) => r.data);
 export const createProduct = (data) => apiClient.post('/products', data).then((r) => r.data);
 export const updateProduct = (id, data) => apiClient.put(`/products/${id}`, data).then((r) => r.data);
 export const deleteProduct = (id) => apiClient.delete(`/products/${id}`).then((r) => r.data);

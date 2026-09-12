@@ -98,3 +98,23 @@ Stacktrace:   at System.Runtime.InteropServices.Marshal.ThrowExceptionForHRInter
 2026-09-06 19:00:40 - Finished adminprinterservice.exe
 2026-09-06 19:00:41 - Starting C:\Program Files\nodejs\node.exe  C:\Users\DELL\Downloads\cafe-management-system\cafe-management\admin-printer\node_modules\node-windows\lib\wrapper.js --file C:\Users\DELL\Downloads\cafe-management-system\cafe-management\admin-printer\printer.js --scriptoptions= --log "AdminPrinterService wrapper" --grow 0.25 --wait 2 --maxrestarts 10 --abortonerror n --stopparentfirst undefined
 2026-09-06 19:00:41 - Started 1636
+2026-09-08 17:25:28 - Starting C:\Program Files\nodejs\node.exe  C:\Users\DELL\Downloads\cafe-management-system\cafe-management\admin-printer\node_modules\node-windows\lib\wrapper.js --file C:\Users\DELL\Downloads\cafe-management-system\cafe-management\admin-printer\printer.js --scriptoptions= --log "AdminPrinterService wrapper" --grow 0.25 --wait 2 --maxrestarts 10 --abortonerror n --stopparentfirst undefined
+2026-09-08 17:25:28 - Started 6560
+2026-09-11 19:40:42 - Starting C:\Program Files\nodejs\node.exe  C:\Users\DELL\Downloads\cafe-management-system\cafe-management\admin-printer\node_modules\node-windows\lib\wrapper.js --file C:\Users\DELL\Downloads\cafe-management-system\cafe-management\admin-printer\printer.js --scriptoptions= --log "AdminPrinterService wrapper" --grow 0.25 --wait 2 --maxrestarts 10 --abortonerror n --stopparentfirst undefined
+2026-09-11 19:40:42 - Started 6232
+2026-09-11 19:41:18 - Stopping adminprinterservice.exe
+2026-09-11 19:41:18 - ProcessKill 6232
+2026-09-11 19:41:19 - Shutdown exception
+Message:Class not registered
+
+Stacktrace:   at System.Runtime.InteropServices.Marshal.ThrowExceptionForHRInternal(Int32 errorCode, IntPtr errorInfo)
+   at System.Management.ManagementScope.InitializeGuts(Object o)
+   at System.Management.ManagementScope.Initialize()
+   at System.Management.ManagementObjectSearcher.Initialize()
+   at System.Management.ManagementObjectSearcher.Get()
+   at winsw.WrapperService.GetChildPids(Int32 pid)
+   at winsw.WrapperService.StopProcessAndChildren(Int32 pid)
+   at winsw.WrapperService.StopIt()
+   at winsw.WrapperService.OnShutdown()
+2026-09-11 19:41:50 - Starting C:\Program Files\nodejs\node.exe  C:\Users\DELL\Downloads\cafe-management-system\cafe-management\admin-printer\node_modules\node-windows\lib\wrapper.js --file C:\Users\DELL\Downloads\cafe-management-system\cafe-management\admin-printer\printer.js --scriptoptions= --log "AdminPrinterService wrapper" --grow 0.25 --wait 2 --maxrestarts 10 --abortonerror n --stopparentfirst undefined
+2026-09-11 19:41:50 - Started 5560
