@@ -9,10 +9,8 @@
   "dependencies": {
     "axios": "^1.6.0",
     "dotenv": "^16.3.1",
-    "escpos": "3.0.0-alpha.6",
-    "escpos-usb": "3.0.0-alpha.4",
+    "node-thermal-printer": "^4.2.0",
     "node-windows": "^1.0.0-beta.8",
-    "socket.io-client": "^4.7.2",
     "usb": "1.9.2"
   }
 }

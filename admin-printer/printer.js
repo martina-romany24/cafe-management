@@ -2,17 +2,13 @@ require('dotenv').config({ path: require('path').join(__dirname, '.env') });
 const path = require('path');
 const fs = require('fs');
 const axios = require('axios');
-const escpos = require('escpos');
-escpos.USB = require('escpos-usb');
+const ThermalPrinter = require('node-thermal-printer').printer;
+const PrinterTypes = require('node-thermal-printer').types;
 
 // Configuration
 const BACKEND_URL = process.env.BACKEND_URL || 'http://localhost:5000';
 const PRINTER_TOKEN = process.env.PRINTER_TOKEN;
 const POLL_INTERVAL_MS = 5000; // check for new orders every 5 seconds
-
-// U-POS UP300 vendor/product IDs
-const PRINTER_VID = 0x0418;
-const PRINTER_PID = 0x5011;
 
 // Where we remember the last time we successfully checked for orders, so a
 // restart doesn't reprint old invoices or miss ones that arrived while the
@@ -51,9 +47,12 @@ console.log(`🕐 Resuming from: ${lastChecked}`);
 // polling — it will succeed automatically once the printer is reconnected.
 function createPrinterDevice() {
   try {
-    const device = new escpos.USB(PRINTER_VID, PRINTER_PID);
-    const printer = new escpos.Printer(device);
-    return { device, printer };
+    const printer = new ThermalPrinter({
+      type: PrinterTypes.EPSON,
+      interface: 'printer:auto', // Auto-detect printer
+      driver: require('node-thermal-printer').driver
+    });
+    return printer;
   } catch (error) {
     console.error('⚠️  Printer not found or not connected:', error.message);
     return null;
@@ -61,75 +60,66 @@ function createPrinterDevice() {
 }
 
 function printOrderInvoice(order) {
-  return new Promise((resolve) => {
-    const printerInstance = createPrinterDevice();
-    if (!printerInstance) {
+  return new Promise(async (resolve) => {
+    const printer = createPrinterDevice();
+    if (!printer) {
       console.error(`❌ Could not print order #${order.id}: printer not connected.`);
       return resolve();
     }
-    const { device, printer } = printerInstance;
 
-    device.open((error) => {
-      if (error) {
-        console.error('Printer error:', error.message);
-        return resolve();
-      }
+    try {
+      printer.alignCenter();
+      printer.println('================================');
+      printer.setTextSize('Large');
+      printer.println('فاتورة');
+      printer.setTextSize('Medium');
+      printer.println('================================');
+      printer.println('');
+      printer.alignLeft();
+      printer.println(`رقم الطلب: #${order.id}`);
+      printer.println(`التاريخ: ${new Date(order.createdAt).toLocaleString('ar-EG')}`);
+      printer.println(`الفرع: ${order.branch?.name || 'الإدارة'}`);
+      printer.println('');
+      printer.println('--------------------------------');
+      printer.println('المنتجات:');
+      printer.println('--------------------------------');
+      printer.println('');
 
-      try {
-        printer
-          .font('a')
-          .align('ct')
-          .size(1, 1)
-          .text('================================')
-          .size(2, 2)
-          .text('فاتورة')
-          .size(1, 1)
-          .text('================================')
-          .text('')
-          .align('lt')
-          .text(`رقم الطلب: #${order.id}`)
-          .text(`التاريخ: ${new Date(order.createdAt).toLocaleString('ar-EG')}`)
-          .text(`الفرع: ${order.branch?.name || 'الإدارة'}`)
-          .text('')
-          .text('--------------------------------')
-          .text('المنتجات:')
-          .text('--------------------------------')
-          .text('');
+      order.items?.forEach((item, index) => {
+        const productName = item.product?.name || 'منتج غير معروف';
+        const quantity = item.quantity;
+        const price = Number(item.priceAtSale).toFixed(2);
+        const total = (Number(item.priceAtSale) * quantity).toFixed(2);
 
-        order.items?.forEach((item, index) => {
-          const productName = item.product?.name || 'منتج غير معروف';
-          const quantity = item.quantity;
-          const price = Number(item.priceAtSale).toFixed(2);
-          const total = (Number(item.priceAtSale) * quantity).toFixed(2);
+        printer.println(`${index + 1}. ${productName}`);
+        printer.println(`   ${quantity} × ${price} = ${total} ج.م`);
+      });
 
-          printer
-            .text(`${index + 1}. ${productName}`)
-            .text(`   ${quantity} × ${price} = ${total} ج.م`);
-        });
+      printer.println('');
+      printer.println('--------------------------------');
+      printer.alignRight();
+      printer.setTextSize('Large');
+      printer.println(`الإجمالي: ${Number(order.totalAmount).toFixed(2)} ج.م`);
+      printer.setTextSize('Medium');
+      printer.alignCenter();
+      printer.println('================================');
+      printer.println('');
+      printer.println('شكراً لتعاملكم معنا');
+      printer.println('');
+      printer.println('');
+      printer.cut();
 
-        printer
-          .text('')
-          .text('--------------------------------')
-          .align('rt')
-          .size(2, 2)
-          .text(`الإجمالي: ${Number(order.totalAmount).toFixed(2)} ج.م`)
-          .size(1, 1)
-          .text('================================')
-          .text('')
-          .align('ct')
-          .text('شكراً لتعاملكم معنا')
-          .text('')
-          .text('')
-          .cut()
-          .close(() => resolve());
-
+      const success = await printer.execute();
+      if (success) {
         console.log(`✅ Invoice printed successfully for order #${order.id}`);
-      } catch (printError) {
-        console.error('Print error:', printError.message);
-        device.close();
-        resolve();
+      } else {
+        console.error(`❌ Failed to print order #${order.id}`);
       }
-    });
+      resolve();
+    } catch (printError) {
+      console.error('Print error:', printError.message);
+      resolve();
+    }
   });
 }
 
