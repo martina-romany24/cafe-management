@@ -82,6 +82,11 @@ router.get('/top-products', authenticate, requireRole('admin', 'branch_manager')
 router.get('/admin-report', authenticate, requireRole('admin'), controller.adminReport);
 router.get('/all', authenticate, requireRole('admin'), controller.getAllOrders);
 
+// Admin printer service polls this endpoint periodically for new orders to
+// print. Must be declared BEFORE the generic '/:id' route below, otherwise
+// Express would treat "recent-for-print" as an :id value.
+router.get('/recent-for-print', authenticatePrinter, controller.getRecentForPrint);
+
 // Table-specific order routes (must come before /:id routes)
 router.post('/table-order', authenticate, requireRole('admin', 'branch_manager'), validate(tableOrderCreateSchema), controller.createTableOrder);
 router.get('/table/:tableId', authenticate, requireRole('admin', 'branch_manager'), controller.getOrderByTable);

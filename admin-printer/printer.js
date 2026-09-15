@@ -1,104 +1,78 @@
-require('dotenv').config();
-const io = require('socket.io-client');
+require('dotenv').config({ path: require('path').join(__dirname, '.env') });
+const path = require('path');
+const fs = require('fs');
 const axios = require('axios');
 const escpos = require('escpos');
 escpos.USB = require('escpos-usb');
 
 // Configuration
-const BACKEND_URL = process.env.BACKEND_URL || 'http://localhost:3001';
+const BACKEND_URL = process.env.BACKEND_URL || 'http://localhost:5000';
 const PRINTER_TOKEN = process.env.PRINTER_TOKEN;
+const POLL_INTERVAL_MS = 5000; // check for new orders every 5 seconds
 
 // U-POS UP300 vendor/product IDs
 const PRINTER_VID = 0x0418;
 const PRINTER_PID = 0x5011;
 
-console.log('🖨️  Admin Printer Service Starting...');
-console.log(`📡 Connecting to backend: ${BACKEND_URL}`);
+// Where we remember the last time we successfully checked for orders, so a
+// restart doesn't reprint old invoices or miss ones that arrived while the
+// service was down.
+const STATE_FILE = path.join(__dirname, 'last-checked.json');
 
-// إنشاء اتصال بالطابعة عند الحاجة فقط (وقت الطباعة)، وليس عند بدء تشغيل الخدمة.
-// كده لو الطابعة مش متصلة، الخدمة تفضل شغالة ومتصلة بالباك إند بدل ما توقف بالكامل.
+console.log('🖨️  Admin Printer Service Starting...');
+console.log(`📡 Backend: ${BACKEND_URL}`);
+console.log(`⏱️  Polling every ${POLL_INTERVAL_MS / 1000}s for new orders`);
+
+function loadLastChecked() {
+  try {
+    const raw = fs.readFileSync(STATE_FILE, 'utf8');
+    const parsed = JSON.parse(raw);
+    if (parsed.lastChecked) return parsed.lastChecked;
+  } catch (err) {
+    // File doesn't exist yet or is invalid — that's fine on first run.
+  }
+  // First run ever: only print orders from now on, not the entire history.
+  return new Date().toISOString();
+}
+
+function saveLastChecked(isoString) {
+  try {
+    fs.writeFileSync(STATE_FILE, JSON.stringify({ lastChecked: isoString }));
+  } catch (err) {
+    console.error('⚠️  Could not save polling state:', err.message);
+  }
+}
+
+let lastChecked = loadLastChecked();
+console.log(`🕐 Resuming from: ${lastChecked}`);
+
+// Creates a fresh connection to the printer only when we're about to print.
+// If the printer is unplugged, this fails gracefully and the service keeps
+// polling — it will succeed automatically once the printer is reconnected.
 function createPrinterDevice() {
   try {
     const device = new escpos.USB(PRINTER_VID, PRINTER_PID);
     const printer = new escpos.Printer(device);
     return { device, printer };
   } catch (error) {
-    console.error('⚠️  لم يتم العثور على الطابعة أو أنها غير متصلة:', error.message);
+    console.error('⚠️  Printer not found or not connected:', error.message);
     return null;
   }
 }
 
-// Connect to backend via Socket.IO
-const socket = io(BACKEND_URL, {
-  auth: {
-    token: PRINTER_TOKEN
-  }
-});
-
-socket.on('connect', () => {
-  console.log('✅ Connected to backend');
-  socket.emit('join', { room: 'hq' });
-});
-
-socket.on('connect_error', (error) => {
-  console.error('❌ Connection error:', error.message);
-});
-
-socket.on('disconnect', () => {
-  console.log('🔌 Disconnected from backend');
-});
-
-// Listen for new orders
-socket.on('order_created', async (data) => {
-  console.log('📋 New order received:', data.orderId);
-  await printInvoice(data.orderId);
-});
-
-socket.on('order_updated', async (data) => {
-  console.log('📋 Order updated:', data.orderId);
-  // Optionally print updated invoice
-  // await printInvoice(data.orderId);
-});
-
-// Function to fetch order details
-async function fetchOrderDetails(orderId) {
-  try {
-    const response = await axios.get(`${BACKEND_URL}/api/orders/${orderId}/printer`, {
-      headers: {
-        'Authorization': `Bearer ${PRINTER_TOKEN}`
-      }
-    });
-    return response.data;
-  } catch (error) {
-    console.error('Error fetching order details:', error.message);
-    return null;
-  }
-}
-
-// Function to print invoice
-async function printInvoice(orderId) {
-  // نحاول إنشاء اتصال بالطابعة الآن فقط، وقت الطباعة الفعلية
-  const printerInstance = createPrinterDevice();
-  if (!printerInstance) {
-    console.error(`❌ تعذّر طباعة الطلب #${orderId}: الطابعة غير متصلة. سيتم استقبال الطلب بشكل طبيعي لكن لن تتم الطباعة.`);
-    return;
-  }
-
-  const { device, printer } = printerInstance;
-
-  try {
-    const order = await fetchOrderDetails(orderId);
-    if (!order) {
-      console.error('Failed to fetch order details');
-      return;
+function printOrderInvoice(order) {
+  return new Promise((resolve) => {
+    const printerInstance = createPrinterDevice();
+    if (!printerInstance) {
+      console.error(`❌ Could not print order #${order.id}: printer not connected.`);
+      return resolve();
     }
-
-    console.log('Printing invoice for order:', orderId);
+    const { device, printer } = printerInstance;
 
     device.open((error) => {
       if (error) {
-        console.error('Printer error:', error);
-        return;
+        console.error('Printer error:', error.message);
+        return resolve();
       }
 
       try {
@@ -122,7 +96,6 @@ async function printInvoice(orderId) {
           .text('--------------------------------')
           .text('');
 
-        // Print order items
         order.items?.forEach((item, index) => {
           const productName = item.product?.name || 'منتج غير معروف';
           const quantity = item.quantity;
@@ -148,27 +121,59 @@ async function printInvoice(orderId) {
           .text('')
           .text('')
           .cut()
-          .close();
+          .close(() => resolve());
 
-        console.log('✅ Invoice printed successfully');
+        console.log(`✅ Invoice printed successfully for order #${order.id}`);
       } catch (printError) {
-        console.error('Print error:', printError);
+        console.error('Print error:', printError.message);
         device.close();
+        resolve();
       }
     });
+  });
+}
+
+async function pollForNewOrders() {
+  try {
+    const response = await axios.get(`${BACKEND_URL}/api/orders/recent-for-print`, {
+      params: { since: lastChecked },
+      headers: { Authorization: `Bearer ${PRINTER_TOKEN}` },
+    });
+
+    const orders = response.data;
+    if (orders.length > 0) {
+      console.log(`📋 ${orders.length} new order(s) found`);
+    }
+
+    for (const order of orders) {
+      console.log(`🖨️  Printing invoice for order #${order.id}...`);
+      await printOrderInvoice(order);
+      // Advance the watermark past this order so we never reprint it, even
+      // if a later order in this batch fails.
+      lastChecked = order.createdAt;
+      saveLastChecked(lastChecked);
+    }
   } catch (error) {
-    console.error('Error printing invoice:', error);
+    if (error.response) {
+      console.error(`❌ Backend error (${error.response.status}):`, error.response.data?.message || error.message);
+    } else if (error.request) {
+      console.error('❌ Could not reach backend:', error.message);
+    } else {
+      console.error('❌ Polling error:', error.message);
+    }
   }
 }
 
-// Handle process termination
-process.on('SIGINT', () => {
-  console.log('\n👋 Shutting down printer service...');
-  socket.disconnect();
-  process.exit(0);
+// Poll immediately on startup, then repeat on the interval.
+pollForNewOrders();
+setInterval(pollForNewOrders, POLL_INTERVAL_MS);
+
+// Safety net: log unexpected errors instead of letting the service crash.
+process.on('uncaughtException', (error) => {
+  console.error('⚠️  Unexpected error (service stays alive):', error.message);
 });
 
-// حماية إضافية: تسجيل أي خطأ غير متوقع في اللوج بدل ما يوقف الخدمة بالكامل
-process.on('uncaughtException', (error) => {
-  console.error('⚠️  خطأ غير متوقع (تم تجاهله لإبقاء الخدمة شغالة):', error.message);
+process.on('SIGINT', () => {
+  console.log('\n👋 Shutting down printer service...');
+  process.exit(0);
 });

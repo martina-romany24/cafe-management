@@ -95,6 +95,28 @@ async function topProducts(req, res, next) {
   }
 }
 
+// Used by the admin printer service, which polls this endpoint periodically
+// instead of listening on a socket — far simpler and more resilient than a
+// live push connection for a Windows-service-based printing client.
+async function getRecentForPrint(req, res, next) {
+  try {
+    // Default: orders from the last 5 minutes, so a first run after a
+    // restart doesn't dump the entire order history on the printer.
+    const since = req.query.since ? new Date(req.query.since) : new Date(Date.now() - 5 * 60 * 1000);
+    const orders = await prisma.order.findMany({
+      where: { createdAt: { gt: since } },
+      include: {
+        items: { include: { product: true } },
+        branch: true,
+      },
+      orderBy: { createdAt: 'asc' },
+    });
+    res.json(orders);
+  } catch (err) {
+    next(err);
+  }
+}
+
 async function getAllOrders(req, res, next) {
   try {
     const { branchId, from, to } = req.query;
@@ -209,4 +231,4 @@ async function getOrderById(req, res, next) {
   }
 }
 
-module.exports = { create, branchSummary, adminReport, topProducts, getAllOrders, createTableOrder, addItemsToOrder, splitBill, transferOrder, getOrderByTable, deleteOrder, getOrderById };
+module.exports = { create, branchSummary, adminReport, topProducts, getAllOrders, getRecentForPrint, createTableOrder, addItemsToOrder, splitBill, transferOrder, getOrderByTable, deleteOrder, getOrderById };
