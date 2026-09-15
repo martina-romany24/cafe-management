@@ -2,13 +2,13 @@ require('dotenv').config({ path: require('path').join(__dirname, '.env') });
 const path = require('path');
 const fs = require('fs');
 const axios = require('axios');
-const ThermalPrinter = require('node-thermal-printer').printer;
-const PrinterTypes = require('node-thermal-printer').types;
+const { exec } = require('child_process');
 
 // Configuration
 const BACKEND_URL = process.env.BACKEND_URL || 'http://localhost:5000';
 const PRINTER_TOKEN = process.env.PRINTER_TOKEN;
 const POLL_INTERVAL_MS = 5000; // check for new orders every 5 seconds
+const PRINTER_NAME = process.env.PRINTER_NAME || 'Printer POS-80';
 
 // Where we remember the last time we successfully checked for orders, so a
 // restart doesn't reprint old invoices or miss ones that arrived while the
@@ -18,6 +18,7 @@ const STATE_FILE = path.join(__dirname, 'last-checked.json');
 console.log('🖨️  Admin Printer Service Starting...');
 console.log(`📡 Backend: ${BACKEND_URL}`);
 console.log(`⏱️  Polling every ${POLL_INTERVAL_MS / 1000}s for new orders`);
+console.log(`🖨️  Target printer: ${PRINTER_NAME}`);
 
 function loadLastChecked() {
   try {
@@ -42,48 +43,19 @@ function saveLastChecked(isoString) {
 let lastChecked = loadLastChecked();
 console.log(`🕐 Resuming from: ${lastChecked}`);
 
-// Creates a fresh connection to the printer only when we're about to print.
-// If the printer is unplugged, this fails gracefully and the service keeps
-// polling — it will succeed automatically once the printer is reconnected.
-function createPrinterDevice() {
-  try {
-    const printer = new ThermalPrinter({
-      type: PrinterTypes.EPSON,
-      interface: 'printer:auto', // Auto-detect printer
-      driver: require('node-thermal-printer').driver
-    });
-    return printer;
-  } catch (error) {
-    console.error('⚠️  Printer not found or not connected:', error.message);
-    return null;
-  }
-}
-
 function printOrderInvoice(order) {
-  return new Promise(async (resolve) => {
-    const printer = createPrinterDevice();
-    if (!printer) {
-      console.error(`❌ Could not print order #${order.id}: printer not connected.`);
-      return resolve();
-    }
-
+  return new Promise((resolve) => {
     try {
-      printer.alignCenter();
-      printer.println('================================');
-      printer.setTextSize('Large');
-      printer.println('فاتورة');
-      printer.setTextSize('Medium');
-      printer.println('================================');
-      printer.println('');
-      printer.alignLeft();
-      printer.println(`رقم الطلب: #${order.id}`);
-      printer.println(`التاريخ: ${new Date(order.createdAt).toLocaleString('ar-EG')}`);
-      printer.println(`الفرع: ${order.branch?.name || 'الإدارة'}`);
-      printer.println('');
-      printer.println('--------------------------------');
-      printer.println('المنتجات:');
-      printer.println('--------------------------------');
-      printer.println('');
+      // Build invoice text
+      let invoiceText = '================================\n';
+      invoiceText += 'فاتورة\n';
+      invoiceText += '================================\n\n';
+      invoiceText += `رقم الطلب: #${order.id}\n`;
+      invoiceText += `التاريخ: ${new Date(order.createdAt).toLocaleString('ar-EG')}\n`;
+      invoiceText += `الفرع: ${order.branch?.name || 'الإدارة'}\n\n`;
+      invoiceText += '--------------------------------\n';
+      invoiceText += 'المنتجات:\n';
+      invoiceText += '--------------------------------\n\n';
 
       order.items?.forEach((item, index) => {
         const productName = item.product?.name || 'منتج غير معروف';
@@ -91,33 +63,39 @@ function printOrderInvoice(order) {
         const price = Number(item.priceAtSale).toFixed(2);
         const total = (Number(item.priceAtSale) * quantity).toFixed(2);
 
-        printer.println(`${index + 1}. ${productName}`);
-        printer.println(`   ${quantity} × ${price} = ${total} ج.م`);
+        invoiceText += `${index + 1}. ${productName}\n`;
+        invoiceText += `   ${quantity} × ${price} = ${total} ج.م\n`;
       });
 
-      printer.println('');
-      printer.println('--------------------------------');
-      printer.alignRight();
-      printer.setTextSize('Large');
-      printer.println(`الإجمالي: ${Number(order.totalAmount).toFixed(2)} ج.م`);
-      printer.setTextSize('Medium');
-      printer.alignCenter();
-      printer.println('================================');
-      printer.println('');
-      printer.println('شكراً لتعاملكم معنا');
-      printer.println('');
-      printer.println('');
-      printer.cut();
+      invoiceText += '\n--------------------------------\n';
+      invoiceText += `الإجمالي: ${Number(order.totalAmount).toFixed(2)} ج.م\n`;
+      invoiceText += '================================\n\n';
+      invoiceText += 'شكراً لتعاملكم معنا\n\n';
 
-      const success = await printer.execute();
-      if (success) {
-        console.log(`✅ Invoice printed successfully for order #${order.id}`);
-      } else {
-        console.error(`❌ Failed to print order #${order.id}`);
-      }
-      resolve();
-    } catch (printError) {
-      console.error('Print error:', printError.message);
+      // Create temporary file
+      const tempFile = path.join(__dirname, `temp-invoice-${Date.now()}.txt`);
+      fs.writeFileSync(tempFile, invoiceText, 'utf8');
+
+      // Print using Windows command
+      const printCommand = `print /D:"${PRINTER_NAME}" "${tempFile}"`;
+      exec(printCommand, (error, stdout, stderr) => {
+        // Clean up temp file
+        try {
+          fs.unlinkSync(tempFile);
+        } catch (e) {
+          // Ignore cleanup errors
+        }
+
+        if (error) {
+          console.error(`❌ Print error for order #${order.id}:`, error.message);
+          resolve();
+        } else {
+          console.log(`✅ Invoice printed successfully for order #${order.id}`);
+          resolve();
+        }
+      });
+    } catch (error) {
+      console.error('Print error:', error.message);
       resolve();
     }
   });
