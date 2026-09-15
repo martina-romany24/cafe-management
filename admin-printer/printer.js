@@ -46,39 +46,39 @@ console.log(`🕐 Resuming from: ${lastChecked}`);
 function printOrderInvoice(order) {
   return new Promise((resolve) => {
     try {
-      // Build invoice text
+      // Build invoice text with simple ASCII-compatible Arabic
       let invoiceText = '================================\n';
-      invoiceText += 'فاتورة\n';
+      invoiceText += 'FATURA / INVOICE\n';
       invoiceText += '================================\n\n';
-      invoiceText += `رقم الطلب: #${order.id}\n`;
-      invoiceText += `التاريخ: ${new Date(order.createdAt).toLocaleString('ar-EG')}\n`;
-      invoiceText += `الفرع: ${order.branch?.name || 'الإدارة'}\n\n`;
+      invoiceText += `Order #: ${order.id.substring(0, 8)}\n`;
+      invoiceText += `Date: ${new Date(order.createdAt).toLocaleString('en-GB')}\n`;
+      invoiceText += `Branch: ${order.branch?.name || 'Admin'}\n\n`;
       invoiceText += '--------------------------------\n';
-      invoiceText += 'المنتجات:\n';
+      invoiceText += 'PRODUCTS:\n';
       invoiceText += '--------------------------------\n\n';
 
       order.items?.forEach((item, index) => {
-        const productName = item.product?.name || 'منتج غير معروف';
+        const productName = item.product?.name || 'Unknown Product';
         const quantity = item.quantity;
         const price = Number(item.priceAtSale).toFixed(2);
         const total = (Number(item.priceAtSale) * quantity).toFixed(2);
 
         invoiceText += `${index + 1}. ${productName}\n`;
-        invoiceText += `   ${quantity} × ${price} = ${total} ج.م\n`;
+        invoiceText += `   ${quantity} × ${price} = ${total} EGP\n`;
       });
 
       invoiceText += '\n--------------------------------\n';
-      invoiceText += `الإجمالي: ${Number(order.totalAmount).toFixed(2)} ج.م\n`;
+      invoiceText += `TOTAL: ${Number(order.totalAmount).toFixed(2)} EGP\n`;
       invoiceText += '================================\n\n';
-      invoiceText += 'شكراً لتعاملكم معنا\n\n';
+      invoiceText += 'Thank you for your business\n\n';
 
-      // Create temporary file
+      // Create temporary file with ASCII encoding for thermal printer compatibility
       const tempFile = path.join(__dirname, `temp-invoice-${Date.now()}.txt`);
-      fs.writeFileSync(tempFile, invoiceText, 'utf8');
+      fs.writeFileSync(tempFile, invoiceText, 'ascii');
 
-      // Print using Windows command
-      const printCommand = `print /D:"${PRINTER_NAME}" "${tempFile}"`;
-      exec(printCommand, (error, stdout, stderr) => {
+      // Print using PowerShell
+      const psCommand = `powershell -Command "Get-Content '${tempFile}' | Out-Printer -Name '${PRINTER_NAME}'"`;
+      exec(psCommand, (error, stdout, stderr) => {
         // Clean up temp file
         try {
           fs.unlinkSync(tempFile);
@@ -88,6 +88,7 @@ function printOrderInvoice(order) {
 
         if (error) {
           console.error(`❌ Print error for order #${order.id}:`, error.message);
+          if (stderr) console.error('Stderr:', stderr);
           resolve();
         } else {
           console.log(`✅ Invoice printed successfully for order #${order.id}`);
