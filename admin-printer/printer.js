@@ -11,8 +11,8 @@ const PRINTER_TOKEN = process.env.PRINTER_TOKEN;
 const POLL_INTERVAL_MS = 5000; // check for new orders every 5 seconds
 
 // U-POS UP300 vendor/product IDs
-const PRINTER_VID = 0x0418;
-const PRINTER_PID = 0x5011;
+const PRINTER_VID = 0x0456;
+const PRINTER_PID = 0x0808;
 
 // Where we remember the last time we successfully checked for orders, so a
 // restart doesn't reprint old invoices or miss ones that arrived while the
