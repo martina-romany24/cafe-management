@@ -4,7 +4,8 @@
   "description": "Admin printer service for automatic invoice printing",
   "main": "printer.js",
   "scripts": {
-    "start": "node printer.js"
+    "start": "node printer.js",
+    "test-print": "node test-print.js"
   },
   "dependencies": {
     "@maxxuxx/node-printer": "^1.4.0",

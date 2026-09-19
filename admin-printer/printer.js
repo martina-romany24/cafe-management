@@ -46,38 +46,38 @@ console.log(`🕐 Resuming from: ${lastChecked}`);
 function printOrderInvoice(order) {
   return new Promise((resolve) => {
     try {
-      // Build invoice text with simple ASCII-compatible Arabic
-      let invoiceText = '================================\n';
-      invoiceText += 'FATURA / INVOICE\n';
-      invoiceText += '================================\n\n';
-      invoiceText += `Order #: ${order.id.substring(0, 8)}\n`;
-      invoiceText += `Date: ${new Date(order.createdAt).toLocaleString('en-GB')}\n`;
-      invoiceText += `Branch: ${order.branch?.name || 'Admin'}\n\n`;
-      invoiceText += '--------------------------------\n';
-      invoiceText += 'PRODUCTS:\n';
-      invoiceText += '--------------------------------\n\n';
+      // Build invoice text with Arabic support
+      let invoiceText = '═══════════════════════════════\n';
+      invoiceText += '       ابن الباشا\n';
+      invoiceText += '═══════════════════════════════\n\n';
+      invoiceText += `رقم الطلب: ${order.id.substring(0, 8)}\n`;
+      invoiceText += `التاريخ: ${new Date(order.createdAt).toLocaleString('ar-EG')}\n`;
+      invoiceText += `الفرع: ${order.branch?.name || 'الإدارة'}\n\n`;
+      invoiceText += '───────────────────────────────\n';
+      invoiceText += 'الأصناف:\n';
+      invoiceText += '───────────────────────────────\n\n';
 
       order.items?.forEach((item, index) => {
-        const productName = item.product?.name || 'Unknown Product';
+        const productName = item.product?.name || 'منتج غير معروف';
         const quantity = item.quantity;
         const price = Number(item.priceAtSale).toFixed(2);
         const total = (Number(item.priceAtSale) * quantity).toFixed(2);
 
         invoiceText += `${index + 1}. ${productName}\n`;
-        invoiceText += `   ${quantity} × ${price} = ${total} EGP\n`;
+        invoiceText += `   ${quantity} × ${price} = ${total} ج.م\n`;
       });
 
-      invoiceText += '\n--------------------------------\n';
-      invoiceText += `TOTAL: ${Number(order.totalAmount).toFixed(2)} EGP\n`;
-      invoiceText += '================================\n\n';
-      invoiceText += 'Thank you for your business\n\n';
+      invoiceText += '\n───────────────────────────────\n';
+      invoiceText += `الإجمالي: ${Number(order.totalAmount).toFixed(2)} ج.م\n`;
+      invoiceText += '═══════════════════════════════\n\n';
+      invoiceText += 'شكراً لزيارتكم\n\n';
 
-      // Create temporary file with ASCII encoding for thermal printer compatibility
+      // Create temporary file with UTF-8 encoding for Arabic support
       const tempFile = path.join(__dirname, `temp-invoice-${Date.now()}.txt`);
-      fs.writeFileSync(tempFile, invoiceText, 'ascii');
+      fs.writeFileSync(tempFile, invoiceText, 'utf8');
 
-      // Print using PowerShell
-      const psCommand = `powershell -Command "Get-Content '${tempFile}' | Out-Printer -Name '${PRINTER_NAME}'"`;
+      // Print using PowerShell with Arabic font support
+      const psCommand = `powershell -Command "$content = Get-Content '${tempFile}' -Encoding UTF8; $content | Out-Printer -Name '${PRINTER_NAME}'"`;
       exec(psCommand, (error, stdout, stderr) => {
         // Clean up temp file
         try {
@@ -136,6 +136,25 @@ async function pollForNewOrders() {
 // Poll immediately on startup, then repeat on the interval.
 pollForNewOrders();
 setInterval(pollForNewOrders, POLL_INTERVAL_MS);
+
+// Test print function - call this manually to test printer
+function printTestInvoice() {
+  const testOrder = {
+    id: 'test-order-12345678',
+    createdAt: new Date().toISOString(),
+    branch: { name: 'فرع تجريبي' },
+    totalAmount: 150.50,
+    items: [
+      { product: { name: 'قهوة' }, quantity: 2, priceAtSale: 25.00 },
+      { product: { name: 'كيكة' }, quantity: 1, priceAtSale: 100.50 }
+    ]
+  };
+  console.log('🖨️  Printing test invoice...');
+  printOrderInvoice(testOrder);
+}
+
+// Uncomment the line below to print a test invoice when starting the service
+// printTestInvoice();
 
 // Safety net: log unexpected errors instead of letting the service crash.
 process.on('uncaughtException', (error) => {

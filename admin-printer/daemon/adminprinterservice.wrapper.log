@@ -1,2 +1,18 @@
 2026-09-15 22:24:20 - Starting C:\Program Files\nodejs\node.exe  C:\Users\DELL\Downloads\cafe-management-system\cafe-management\admin-printer\node_modules\node-windows\lib\wrapper.js --file C:\Users\DELL\Downloads\cafe-management-system\cafe-management\admin-printer\printer.js --scriptoptions= --log "AdminPrinterService wrapper" --grow 0.25 --wait 2 --maxrestarts 10 --abortonerror n --stopparentfirst undefined
 2026-09-15 22:24:20 - Started 29956
+2026-09-19 19:29:15 - Stopping adminprinterservice.exe
+2026-09-19 19:29:15 - ProcessKill 29956
+2026-09-19 19:29:15 - Found child process: 26068 Name: conhost.exe
+2026-09-19 19:29:15 - Found child process: 28224 Name: node.exe
+2026-09-19 19:29:16 - Stopping process 26068
+2026-09-19 19:29:16 - Send SIGINT 26068
+2026-09-19 19:29:16 - SIGINT to 26068 failed - Killing as fallback
+2026-09-19 19:29:16 - Stopping process 28224
+2026-09-19 19:29:16 - Send SIGINT 28224
+2026-09-19 19:29:16 - SIGINT to 28224 failed - Killing as fallback
+2026-09-19 19:29:16 - Stopping process 29956
+2026-09-19 19:29:16 - Send SIGINT 29956
+2026-09-19 19:29:16 - SIGINT to 29956 failed - Killing as fallback
+2026-09-19 19:29:16 - Finished adminprinterservice.exe
+2026-09-19 19:29:46 - Starting C:\Program Files\nodejs\node.exe  C:\Users\DELL\Downloads\cafe-management-system\cafe-management\admin-printer\node_modules\node-windows\lib\wrapper.js --file C:\Users\DELL\Downloads\cafe-management-system\cafe-management\admin-printer\printer.js --scriptoptions= --log "AdminPrinterService wrapper" --grow 0.25 --wait 2 --maxrestarts 10 --abortonerror n --stopparentfirst undefined
+2026-09-19 19:29:46 - Started 8508
