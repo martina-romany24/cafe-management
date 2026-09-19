@@ -10,8 +10,16 @@ const jwt = require('jsonwebtoken');
  * admins/printer), so branch-specific events never leak across branches.
  */
 function initSocket(httpServer) {
+  const allowedOrigins = [
+    'http://localhost:5173',
+    'http://localhost:5174',
+    'http://localhost:5175'
+  ];
+  if (process.env.CLIENT_URL) {
+    allowedOrigins.push(process.env.CLIENT_URL);
+  }
   const io = new Server(httpServer, {
-    cors: { origin: process.env.CLIENT_URL || '*', credentials: true },
+    cors: { origin: allowedOrigins, credentials: true },
   });
 
   io.use((socket, next) => {

@@ -8,6 +8,7 @@ const urlsToCache = [
 
 // Install event - cache resources
 self.addEventListener('install', (event) => {
+  self.skipWaiting();
   event.waitUntil(
     caches.open(CACHE_NAME)
       .then((cache) => {
@@ -18,7 +19,22 @@ self.addEventListener('install', (event) => {
 });
 
 // Fetch event - serve from cache, fallback to network
+// Skip caching for API calls, Socket.IO, and non-GET requests
 self.addEventListener('fetch', (event) => {
+  const url = new URL(event.request.url);
+  
+  // Skip caching for API calls and Socket.IO
+  if (url.pathname.startsWith('/api') || url.pathname.startsWith('/socket.io')) {
+    event.respondWith(fetch(event.request));
+    return;
+  }
+  
+  // Skip caching for non-GET requests
+  if (event.request.method !== 'GET') {
+    event.respondWith(fetch(event.request));
+    return;
+  }
+  
   event.respondWith(
     caches.match(event.request)
       .then((response) => {
@@ -30,8 +46,9 @@ self.addEventListener('fetch', (event) => {
   );
 });
 
-// Activate event - clean up old caches
+// Activate event - clean up old caches and claim clients
 self.addEventListener('activate', (event) => {
+  self.clients.claim();
   event.waitUntil(
     caches.keys().then((cacheNames) => {
       return Promise.all(
