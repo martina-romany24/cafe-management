@@ -12,6 +12,7 @@
  */
 
 const http = require('http');
+const https = require('https');
 
 const BACKEND_URL = process.env.BACKEND_URL || 'http://localhost:5000';
 const FRONTEND_URL = process.env.FRONTEND_URL || 'http://localhost:5173';
@@ -19,14 +20,16 @@ const FRONTEND_URL = process.env.FRONTEND_URL || 'http://localhost:5173';
 function checkHealth() {
   return new Promise((resolve, reject) => {
     const url = new URL(BACKEND_URL);
+    const isHttps = url.protocol === 'https:';
+    const client = isHttps ? https : http;
     const options = {
       hostname: url.hostname,
-      port: url.port || (url.protocol === 'https:' ? 443 : 80),
+      port: url.port || (isHttps ? 443 : 80),
       path: '/health',
       method: 'GET',
     };
 
-    const req = http.request(options, (res) => {
+    const req = client.request(options, (res) => {
       let data = '';
       res.on('data', (chunk) => data += chunk);
       res.on('end', () => {
@@ -59,9 +62,11 @@ function checkHealth() {
 function checkCors() {
   return new Promise((resolve, reject) => {
     const url = new URL(BACKEND_URL);
+    const isHttps = url.protocol === 'https:';
+    const client = isHttps ? https : http;
     const options = {
       hostname: url.hostname,
-      port: url.port || (url.protocol === 'https:' ? 443 : 80),
+      port: url.port || (isHttps ? 443 : 80),
       path: '/api/auth/login',
       method: 'OPTIONS',
       headers: {
@@ -71,7 +76,7 @@ function checkCors() {
       },
     };
 
-    const req = http.request(options, (res) => {
+    const req = client.request(options, (res) => {
       const acao = res.headers['access-control-allow-origin'];
       const acac = res.headers['access-control-allow-credentials'];
       
