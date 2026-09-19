@@ -1,4 +1,4 @@
-# نظام إدارة الكافيه (Cafe HQ + Branches Management System)
+# نظام إدارة الكافيه (Cafe HQ + Branches Management System) - Production Deployed
 
 نظام Full Stack لإدارة كافيه رئيسي (HQ) يتحكم في 3 فروع تابعة له: منتجات وأسعار مركزية، هامش ربح مستقل لكل فرع (نسبة % أو قيمة ثابتة)، نقطة بيع مبسطة للفروع، وتقارير شهرية تلقائية.
 
