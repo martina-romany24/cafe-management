@@ -1792,3 +1792,32 @@
 ❌ Backend error (404): Application not found
 ❌ Backend error (404): Application not found
 ❌ Backend error (404): Application not found
+❌ Backend error (404): Application not found
+❌ Backend error (404): Application not found
+❌ Backend error (404): Application not found
+❌ Backend error (404): Application not found
+❌ Backend error (404): Application not found
+❌ Backend error (404): Application not found
+❌ Could not reach backend: getaddrinfo ENOTFOUND cafe-management-production-519b.up.railway.app
+❌ Could not reach backend: getaddrinfo ENOTFOUND cafe-management-production-519b.up.railway.app
+❌ Could not reach backend: getaddrinfo ENOTFOUND cafe-management-production-519b.up.railway.app
+❌ Could not reach backend: getaddrinfo ENOTFOUND cafe-management-production-519b.up.railway.app
+❌ Could not reach backend: getaddrinfo ENOTFOUND cafe-management-production-519b.up.railway.app
+❌ Could not reach backend: read ECONNRESET
+❌ Could not reach backend: connect ETIMEDOUT 69.46.46.78:443
+❌ Could not reach backend: connect ETIMEDOUT 69.46.46.78:443
+❌ Backend connection failed: Could not reach server getaddrinfo ENOTFOUND cafe-management-production-519b.up.railway.app
+❌ Could not reach backend: getaddrinfo ENOTFOUND cafe-management-production-519b.up.railway.app
+❌ Could not reach backend: write ECONNABORTED
+❌ Backend connection failed: Could not reach server getaddrinfo ENOTFOUND cafe-management-production-519b.up.railway.app
+❌ Could not reach backend: getaddrinfo ENOTFOUND cafe-management-production-519b.up.railway.app
+❌ Could not reach backend: getaddrinfo ENOTFOUND cafe-management-production-519b.up.railway.app
+❌ Could not reach backend: getaddrinfo ENOTFOUND cafe-management-production-519b.up.railway.app
+❌ Backend connection failed: Could not reach server getaddrinfo ENOTFOUND cafe-management-production-519b.up.railway.app
+❌ Could not reach backend: getaddrinfo ENOTFOUND cafe-management-production-519b.up.railway.app
+❌ Could not reach backend: getaddrinfo ENOTFOUND cafe-management-production-519b.up.railway.app
+❌ Polling error: write ECONNABORTED
+❌ Backend connection failed: getaddrinfo ENOTFOUND cafe-management-production-519b.up.railway.app
+❌ Polling error: getaddrinfo ENOTFOUND cafe-management-production-519b.up.railway.app
+❌ Backend connection failed: getaddrinfo ENOTFOUND cafe-management-production-519b.up.railway.app
+❌ Polling error: getaddrinfo ENOTFOUND cafe-management-production-519b.up.railway.app

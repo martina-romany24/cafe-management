@@ -1,167 +1,158 @@
-require('dotenv').config({ path: require('path').join(__dirname, '.env') });
+const core = require('./printer-core'); // loads .env
 const path = require('path');
 const fs = require('fs');
 const axios = require('axios');
-const { exec } = require('child_process');
 
-// Configuration
 const BACKEND_URL = process.env.BACKEND_URL || 'http://localhost:5000';
 const PRINTER_TOKEN = process.env.PRINTER_TOKEN;
-const POLL_INTERVAL_MS = 5000; // check for new orders every 5 seconds
-const PRINTER_NAME = process.env.PRINTER_NAME || 'Printer POS-80';
+const POLL_INTERVAL_MS = 5000;
+const MAX_REMEMBERED_IDS = 200;
 
-// Where we remember the last time we successfully checked for orders, so a
-// restart doesn't reprint old invoices or miss ones that arrived while the
-// service was down.
 const STATE_FILE = path.join(__dirname, 'last-checked.json');
+const LOCK_FILE = path.join(__dirname, 'printer.lock');
 
+// ---------------------------------------------------------------------------
+// Single-instance lock: a second copy of this program must never run,
+// otherwise each copy prints every order on its own.
+// ---------------------------------------------------------------------------
+function isAlive(pid) {
+  try { process.kill(pid, 0); return true; } catch (e) { return e.code === 'EPERM'; }
+}
+
+function acquireLock() {
+  for (let attempt = 0; attempt < 2; attempt++) {
+    try {
+      fs.writeFileSync(LOCK_FILE, String(process.pid), { flag: 'wx' });
+      return;
+    } catch (e) {
+      if (e.code !== 'EEXIST') throw e;
+      const pid = parseInt(fs.readFileSync(LOCK_FILE, 'utf8'), 10);
+      if (pid && pid !== process.pid && isAlive(pid)) {
+        console.error(`❌ Another printer service is already running (PID ${pid}). Exiting.`);
+        process.exit(1);
+      }
+      try { fs.unlinkSync(LOCK_FILE); } catch (_) { /* stale lock */ }
+    }
+  }
+  console.error('❌ Could not acquire lock file. Exiting.');
+  process.exit(1);
+}
+
+function releaseLock() {
+  try {
+    if (parseInt(fs.readFileSync(LOCK_FILE, 'utf8'), 10) === process.pid) fs.unlinkSync(LOCK_FILE);
+  } catch (_) { /* ignore */ }
+}
+
+acquireLock();
+process.on('exit', releaseLock);
+process.on('SIGINT', () => { console.log('\n👋 Shutting down printer service...'); process.exit(0); });
+process.on('SIGTERM', () => process.exit(0));
+
+// ---------------------------------------------------------------------------
+// Persistent state: watermark + IDs of already-printed orders
+// ---------------------------------------------------------------------------
+function loadState() {
+  try {
+    const parsed = JSON.parse(fs.readFileSync(STATE_FILE, 'utf8'));
+    if (parsed.lastChecked) {
+      return {
+        lastChecked: parsed.lastChecked,
+        printedIds: Array.isArray(parsed.printedIds) ? parsed.printedIds : [],
+      };
+    }
+  } catch (_) { /* first run or invalid file */ }
+  // First run ever: only print orders from now on, never the old history.
+  return { lastChecked: new Date().toISOString(), printedIds: [] };
+}
+
+function saveState() {
+  if (core.DRY_RUN) return; // previews must not consume real orders
+  try {
+    fs.writeFileSync(STATE_FILE, JSON.stringify(state));
+  } catch (err) {
+    console.error('⚠️  Could not save state:', err.message);
+  }
+}
+
+const state = loadState();
+
+function markPrinted(order) {
+  state.printedIds.push(order.id);
+  if (state.printedIds.length > MAX_REMEMBERED_IDS) {
+    state.printedIds = state.printedIds.slice(-MAX_REMEMBERED_IDS);
+  }
+  if (new Date(order.createdAt) > new Date(state.lastChecked)) state.lastChecked = order.createdAt;
+  saveState();
+}
+
+// ---------------------------------------------------------------------------
+// Startup log
+// ---------------------------------------------------------------------------
 console.log('🖨️  Admin Printer Service Starting...');
 console.log(`📡 Backend: ${BACKEND_URL}`);
-console.log(`⏱️  Polling every ${POLL_INTERVAL_MS / 1000}s for new orders`);
-console.log(`🖨️  Target printer: ${PRINTER_NAME}`);
+console.log(`⏱️  Polling every ${POLL_INTERVAL_MS / 1000}s`);
+console.log(`🖨️  Printer: ${core.PRINTER_NAME || '(NOT SET — set PRINTER_NAME in .env)'}`);
+console.log(`📄 Paper width: ${core.PAPER_WIDTH}mm`);
+if (core.DRY_RUN) console.log('🧪 DRY RUN mode: invoices are saved as PNG in ./preview, nothing is printed');
+console.log(`🕐 Resuming from: ${state.lastChecked}`);
 
-function loadLastChecked() {
+async function testBackendConnection() {
   try {
-    const raw = fs.readFileSync(STATE_FILE, 'utf8');
-    const parsed = JSON.parse(raw);
-    if (parsed.lastChecked) return parsed.lastChecked;
-  } catch (err) {
-    // File doesn't exist yet or is invalid — that's fine on first run.
-  }
-  // First run ever: only print orders from now on, not the entire history.
-  return new Date().toISOString();
-}
-
-function saveLastChecked(isoString) {
-  try {
-    fs.writeFileSync(STATE_FILE, JSON.stringify({ lastChecked: isoString }));
-  } catch (err) {
-    console.error('⚠️  Could not save polling state:', err.message);
+    await axios.get(`${BACKEND_URL}/api/orders/recent-for-print`, {
+      params: { since: new Date().toISOString() },
+      headers: { Authorization: `Bearer ${PRINTER_TOKEN}` },
+      timeout: 5000,
+    });
+    console.log('✅ Connected to backend successfully');
+  } catch (error) {
+    if (error.response) console.error('❌ Backend connection failed:', error.response.status, error.response.data?.message || error.message);
+    else console.error('❌ Backend connection failed:', error.message);
   }
 }
 
-let lastChecked = loadLastChecked();
-console.log(`🕐 Resuming from: ${lastChecked}`);
-
-function printOrderInvoice(order) {
-  return new Promise((resolve) => {
-    try {
-      // Build invoice text with Arabic support
-      let invoiceText = '═══════════════════════════════\n';
-      invoiceText += '       ابن الباشا\n';
-      invoiceText += '═══════════════════════════════\n\n';
-      invoiceText += `رقم الطلب: ${order.id.substring(0, 8)}\n`;
-      invoiceText += `التاريخ: ${new Date(order.createdAt).toLocaleString('ar-EG')}\n`;
-      invoiceText += `الفرع: ${order.branch?.name || 'الإدارة'}\n\n`;
-      invoiceText += '───────────────────────────────\n';
-      invoiceText += 'الأصناف:\n';
-      invoiceText += '───────────────────────────────\n\n';
-
-      order.items?.forEach((item, index) => {
-        const productName = item.product?.name || 'منتج غير معروف';
-        const quantity = item.quantity;
-        const price = Number(item.priceAtSale).toFixed(2);
-        const total = (Number(item.priceAtSale) * quantity).toFixed(2);
-
-        invoiceText += `${index + 1}. ${productName}\n`;
-        invoiceText += `   ${quantity} × ${price} = ${total} ج.م\n`;
-      });
-
-      invoiceText += '\n───────────────────────────────\n';
-      invoiceText += `الإجمالي: ${Number(order.totalAmount).toFixed(2)} ج.م\n`;
-      invoiceText += '═══════════════════════════════\n\n';
-      invoiceText += 'شكراً لزيارتكم\n\n';
-
-      // Create temporary file with UTF-8 encoding for Arabic support
-      const tempFile = path.join(__dirname, `temp-invoice-${Date.now()}.txt`);
-      fs.writeFileSync(tempFile, invoiceText, 'utf8');
-
-      // Print using PowerShell with Arabic font support
-      const psCommand = `powershell -Command "$content = Get-Content '${tempFile}' -Encoding UTF8; $content | Out-Printer -Name '${PRINTER_NAME}'"`;
-      exec(psCommand, (error, stdout, stderr) => {
-        // Clean up temp file
-        try {
-          fs.unlinkSync(tempFile);
-        } catch (e) {
-          // Ignore cleanup errors
-        }
-
-        if (error) {
-          console.error(`❌ Print error for order #${order.id}:`, error.message);
-          if (stderr) console.error('Stderr:', stderr);
-          resolve();
-        } else {
-          console.log(`✅ Invoice printed successfully for order #${order.id}`);
-          resolve();
-        }
-      });
-    } catch (error) {
-      console.error('Print error:', error.message);
-      resolve();
-    }
-  });
-}
+// ---------------------------------------------------------------------------
+// Polling
+// ---------------------------------------------------------------------------
+let isPolling = false;
 
 async function pollForNewOrders() {
+  if (isPolling) return; // never let two polls overlap
+  isPolling = true;
   try {
     const response = await axios.get(`${BACKEND_URL}/api/orders/recent-for-print`, {
-      params: { since: lastChecked },
+      params: { since: state.lastChecked },
       headers: { Authorization: `Bearer ${PRINTER_TOKEN}` },
+      timeout: 10000,
     });
 
-    const orders = response.data;
-    if (orders.length > 0) {
-      console.log(`📋 ${orders.length} new order(s) found`);
-    }
+    const orders = (Array.isArray(response.data) ? response.data : [])
+      .slice()
+      .sort((a, b) => new Date(a.createdAt) - new Date(b.createdAt));
 
-    for (const order of orders) {
-      console.log(`🖨️  Printing invoice for order #${order.id}...`);
-      await printOrderInvoice(order);
-      // Advance the watermark past this order so we never reprint it, even
-      // if a later order in this batch fails.
-      lastChecked = order.createdAt;
-      saveLastChecked(lastChecked);
+    // Ignore anything we already printed, even if the backend returns it again.
+    const fresh = orders.filter((o) => !state.printedIds.includes(o.id));
+    if (fresh.length > 0) console.log(`📋 ${fresh.length} new order(s) found`);
+
+    for (const order of fresh) {
+      // Mark BEFORE printing => at most one print per order, even after a crash.
+      markPrinted(order);
+      const ok = await core.printOrderInvoice(order);
+      if (!ok) console.error(`⚠️  Order ${order.id} was NOT printed and will not be retried automatically.`);
     }
   } catch (error) {
-    if (error.response) {
-      console.error(`❌ Backend error (${error.response.status}):`, error.response.data?.message || error.message);
-    } else if (error.request) {
-      console.error('❌ Could not reach backend:', error.message);
-    } else {
-      console.error('❌ Polling error:', error.message);
-    }
+    if (error.response) console.error(`❌ Backend error (${error.response.status}):`, error.response.data?.message || error.message);
+    else console.error('❌ Polling error:', error.message);
+  } finally {
+    isPolling = false;
   }
 }
 
-// Poll immediately on startup, then repeat on the interval.
-pollForNewOrders();
-setInterval(pollForNewOrders, POLL_INTERVAL_MS);
-
-// Test print function - call this manually to test printer
-function printTestInvoice() {
-  const testOrder = {
-    id: 'test-order-12345678',
-    createdAt: new Date().toISOString(),
-    branch: { name: 'فرع تجريبي' },
-    totalAmount: 150.50,
-    items: [
-      { product: { name: 'قهوة' }, quantity: 2, priceAtSale: 25.00 },
-      { product: { name: 'كيكة' }, quantity: 1, priceAtSale: 100.50 }
-    ]
-  };
-  console.log('🖨️  Printing test invoice...');
-  printOrderInvoice(testOrder);
-}
-
-// Uncomment the line below to print a test invoice when starting the service
-// printTestInvoice();
-
-// Safety net: log unexpected errors instead of letting the service crash.
 process.on('uncaughtException', (error) => {
   console.error('⚠️  Unexpected error (service stays alive):', error.message);
 });
 
-process.on('SIGINT', () => {
-  console.log('\n👋 Shutting down printer service...');
-  process.exit(0);
+testBackendConnection().then(() => {
+  pollForNewOrders();
+  setInterval(pollForNewOrders, POLL_INTERVAL_MS);
 });

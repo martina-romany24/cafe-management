@@ -15,3 +15,73 @@
 📋 1 new order(s) found
 🖨️  Printing invoice for order #2ac862c0-cce9-4f55-9b4d-266177debe5b...
 ✅ Invoice printed successfully for order #2ac862c0-cce9-4f55-9b4d-266177debe5b
+🖨️  Admin Printer Service Starting...
+📡 Backend: https://cafe-management-production-519b.up.railway.app
+⏱️  Polling every 5s for new orders
+🖨️  Target printer: Printer POS-80
+🕐 Resuming from: 2026-09-15T19:34:05.995Z
+📋 1 new order(s) found
+🖨️  Printing invoice for order #e9e76f12-89b5-4f0c-8ea2-7936eef44db1...
+✅ Invoice printed successfully for order #e9e76f12-89b5-4f0c-8ea2-7936eef44db1
+📋 1 new order(s) found
+🖨️  Printing invoice for order #ea803959-79c9-455d-a442-7832aede3008...
+✅ Invoice printed successfully for order #ea803959-79c9-455d-a442-7832aede3008
+📋 1 new order(s) found
+🖨️  Printing invoice for order #0375c015-b1b5-4918-a734-ebf41786cc8e...
+✅ Invoice printed successfully for order #0375c015-b1b5-4918-a734-ebf41786cc8e
+🖨️  Admin Printer Service Starting...
+📡 Backend: https://cafe-management-production-519b.up.railway.app
+⏱️  Polling every 5s for new orders
+🖨️  Target printer: Printer POS-80
+🔌 Printer port: USB001
+📄 Paper width: 80mm
+🕐 Resuming from: 2026-09-19T16:32:45.954Z
+🖨️  Admin Printer Service Starting...
+📡 Backend: https://cafe-management-production-519b.up.railway.app
+⏱️  Polling every 5s for new orders
+🖨️  Target printer: Printer POS-80
+🔌 Printer port: USB001
+📄 Paper width: 80mm
+🕐 Resuming from: 2026-09-19T16:32:45.954Z
+🖨️  Admin Printer Service Starting...
+📡 Backend: https://cafe-management-production-519b.up.railway.app
+⏱️  Polling every 5s for new orders
+🖨️  Target printer: Printer POS-80
+🔌 Printer port: USB001
+📄 Paper width: 80mm
+🕐 Resuming from: 2026-09-19T16:32:45.954Z
+🖨️  Admin Printer Service Starting...
+📡 Backend: https://cafe-management-production-519b.up.railway.app
+⏱️  Polling every 5s
+🖨️  Printer: Printer POS-80
+📄 Paper width: 80mm
+🕐 Resuming from: 2026-09-19T16:32:45.954Z
+✅ Connected to backend successfully
+📋 1 new order(s) found
+📄 Invoice #79e3649e: 576x296px (80mm)
+🖨️  Sending 21337 bytes RAW to "Printer POS-80"
+✅ Printed #79e3649e (21337 bytes)
+📋 1 new order(s) found
+📄 Invoice #e1a0ff9b: 576x356px (80mm)
+🖨️  Sending 25657 bytes RAW to "Printer POS-80"
+✅ Printed #e1a0ff9b (25657 bytes)
+📋 1 new order(s) found
+📄 Invoice #8f6edf12: 576x296px (80mm)
+🖨️  Sending 21337 bytes RAW to "Printer POS-80"
+✅ Printed #8f6edf12 (21337 bytes)
+🖨️  Admin Printer Service Starting...
+📡 Backend: https://cafe-management-production-519b.up.railway.app
+⏱️  Polling every 5s
+🖨️  Printer: Printer POS-80
+📄 Paper width: 80mm
+🕐 Resuming from: 2026-09-20T20:10:42.433Z
+🖨️  Admin Printer Service Starting...
+📡 Backend: https://cafe-management-production-519b.up.railway.app
+⏱️  Polling every 5s
+🖨️  Printer: Printer POS-80
+📄 Paper width: 80mm
+🕐 Resuming from: 2026-09-20T20:10:42.433Z
+📋 1 new order(s) found
+📄 Invoice #c9965818: 576x332px (80mm)
+🖨️  Sending 23929 bytes RAW to "Printer POS-80"
+✅ Printed #c9965818 (23929 bytes)
