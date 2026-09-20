@@ -82,6 +82,8 @@ function renderInvoice(ctx, order, width, draw) {
   put(`رقم الطلب: ${String(order.id).substring(0, 8)}`, right, y, 'right');
   y += 28;
   put(`التاريخ: ${fmtDate(order.createdAt)}`, right, y, 'right');
+  y += 28;
+  put(`الفرع: ${order.branch?.name || 'الإدارة'}`, right, y, 'right');
   y += 30;
   rule();
 
@@ -232,6 +234,7 @@ function buildTestOrder() {
   return {
     id: 'test-order-12345678',
     createdAt: new Date().toISOString(),
+    branch: { name: 'فرع تجريبي' },
     totalAmount: 75,
     items: [
       { product: { name: 'قهوة' }, quantity: 1, priceAtSale: 25 },
